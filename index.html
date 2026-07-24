@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>meye</title>
+  <meta name="description" content="Personal productivity — to-do, calendar, notes" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app-container" id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-actions">
+        <button class="icon-btn" aria-label="Heatmap" id="btnClipboard">
+          <iconify-icon icon="solar:widget-2-linear" width="22" height="22"></iconify-icon>
+        </button>
+        <button class="icon-btn" aria-label="Settings" id="btnSettings">
+          <iconify-icon icon="solar:settings-linear" width="22" height="22"></iconify-icon>
+        </button>
+      </div>
+      <h1 class="header-date" id="headerDate"></h1>
+    </header>
+
+    <!-- Date Strip -->
+    <div class="date-strip" id="dateStrip">
+      <div class="date-strip-track" id="dateStripTrack">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+    <!-- Card Feed -->
+    <main class="card-feed" id="cardFeed">
+      <!-- Rendered by JS -->
+    </main>
+
+    <!-- Bottom Input Bar -->
+    <div class="bottom-bar">
+      <div class="input-pill" id="inputPill">
+        <span class="input-placeholder">What's on your mind...</span>
+        <button class="mic-btn" aria-label="Voice input" id="btnMic">
+          <iconify-icon icon="solar:microphone-2-linear" width="24" height="24"></iconify-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Typed Composer Overlay -->
+    <div class="composer-overlay" id="composerOverlay">
+      <div class="composer-backdrop" id="composerBackdrop"></div>
+      <div class="composer-sheet" id="composerSheet">
+        <div class="composer-drag-handle"></div>
+        <div class="composer-preview" id="composerPreview" style="display:none;"></div>
+        <div class="composer-type-row" id="composerTypeRow">
+          <button class="type-chip active" data-type="auto"><iconify-icon icon="solar:magic-stick-3-linear" width="13" height="13"></iconify-icon> Auto</button>
+          <button class="type-chip" data-type="note"><iconify-icon icon="solar:document-text-linear" width="13" height="13"></iconify-icon> Note</button>
+          <button class="type-chip" data-type="todo"><iconify-icon icon="solar:check-circle-linear" width="13" height="13"></iconify-icon> To-do</button>
+          <button class="type-chip" data-type="calendar"><iconify-icon icon="solar:calendar-linear" width="13" height="13"></iconify-icon> Event</button>
+          <button class="type-chip" data-type="routine"><iconify-icon icon="solar:refresh-circle-linear" width="13" height="13"></iconify-icon> Routine</button>
+        </div>
+        <textarea class="composer-input" id="composerInput" placeholder="What's on your mind..." rows="3"></textarea>
+        <div class="composer-detected" id="composerDetected"></div>
+        <div class="composer-actions">
+          <button class="composer-cancel" id="composerCancel">Cancel</button>
+          <button class="composer-add" id="composerAdd">Add</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Speaking Overlay -->
+    <div class="speaking-overlay" id="speakingOverlay">
+      <button class="close-btn" id="btnCloseOverlay" aria-label="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+
+      <div class="speaking-content">
+        <!-- Live canvas waveform driven by Web Audio API AnalyserNode -->
+        <div class="waveform-wrapper">
+          <canvas id="waveCanvas" class="wave-canvas"></canvas>
+        </div>
+
+        <div class="timer-text" id="timerText">0:00</div>
+
+        <!-- Transcript: interim (grey) + final (white) -->
+        <div class="transcript-box" id="transcriptBox">
+          <span class="transcript-final" id="transcriptFinal"></span><span class="transcript-interim" id="transcriptInterim"></span>
+          <span class="transcript-hint" id="transcriptHint">Start speaking...</span>
+        </div>
+      </div>
+
+      <div class="speaking-controls">
+        <button class="control-btn control-btn--pause" id="btnPause" aria-label="Pause">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+        </button>
+        <button class="control-btn control-btn--done" id="btnDone" aria-label="Done">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </button>
+        <button class="control-btn control-btn--cancel" id="btnCancel" aria-label="Cancel">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Review Overlay -->
+    <div class="review-overlay" id="reviewOverlay">
+      <div class="review-header">
+        <button class="review-back" id="btnReviewBack" aria-label="Back">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="review-title">Review</span>
+        <div style="width:38px"></div>
+      </div>
+
+      <div class="review-body" id="reviewBody">
+        <!-- Filled dynamically by JS -->
+      </div>
+
+      <div class="review-footer">
+        <button class="control-btn control-btn--done" id="btnConfirmCard" aria-label="Confirm">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Expanded Card Overlay -->
+    <div class="expanded-overlay" id="expandedOverlay">
+      <div class="expanded-header">
+        <button class="expanded-back" id="btnExpandedBack" aria-label="Back">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <span class="expanded-date" id="expandedDate">Sat July 11th, 2026</span>
+        <div style="position: relative;">
+          <button class="expanded-back" id="btnMenuCard" aria-label="Menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+          </button>
+          <div class="expanded-menu" id="expandedMenu" style="display: none;">
+            <button id="menuEdit"><iconify-icon icon="solar:pen-linear" width="20" height="20"></iconify-icon> Edit</button>
+            <button id="menuCopy"><iconify-icon icon="solar:copy-linear" width="20" height="20"></iconify-icon> Copy</button>
+            <button id="menuTranscript"><iconify-icon icon="solar:text-square-linear" width="20" height="20"></iconify-icon> Transcript</button>
+            <button id="menuDelete" style="color: #ff453a;"><iconify-icon icon="solar:trash-bin-trash-linear" width="20" height="20"></iconify-icon> Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="expanded-scroll" id="expandedScroll">
+        <!-- Main editor box -->
+        <div class="expanded-card">
+          <div id="expandedEditorBox" class="expanded-editor-box">
+            <!-- Dynamically populated based on type -->
+          </div>
+          <div class="expanded-tags" id="expandedTags">
+            <!-- Tags go here -->
+          </div>
+        </div>
+        
+      </div>
+    </div>
+    <!-- Custom Date/Time Picker Modal -->
+    <div class="dt-overlay" id="dtOverlay">
+      <div class="dt-modal" id="dtModal">
+        <div class="dt-header">
+          <button class="dt-cancel" id="dtCancel">Cancel</button>
+          <div class="dt-tabs">
+            <button class="dt-tab active" id="dtTabDate">Date</button>
+            <button class="dt-tab" id="dtTabTime">Time</button>
+          </div>
+          <button class="dt-done" id="dtDone">Done</button>
+        </div>
+        
+        <div class="dt-body">
+          <!-- Date View -->
+          <div class="dt-view dt-view-date active" id="dtViewDate">
+            <div class="dt-month-ctrl">
+              <button id="dtPrevMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+              <span id="dtMonthLabel" class="dt-month-label">July 2026</span>
+              <button id="dtNextMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+            </div>
+            <div class="dt-weekdays">
+              <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+            </div>
+            <div class="dt-days" id="dtDaysGrid"></div>
+          </div>
+          
+          <!-- Time View -->
+          <div class="dt-view dt-view-time" id="dtViewTime" style="display:none;">
+            <div class="dt-wheels">
+              <div class="dt-wheel" id="dtWheelHour"></div>
+              <div class="dt-wheel-sep">:</div>
+              <div class="dt-wheel" id="dtWheelMinute"></div>
+              <div class="dt-wheel dt-wheel-ampm" id="dtWheelAmPm">
+                <div class="dt-wheel-item" data-val="AM">AM</div>
+                <div class="dt-wheel-item" data-val="PM">PM</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Full Page -->
+    <div class="full-page-view" id="settingsPage">
+      <div class="fp-header">
+        <button class="icon-btn" id="settingsBack" style="margin-left:-8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <h2 style="font-size: 17px; margin:0 auto; font-weight: 600;">Settings</h2>
+        <div style="width: 32px;"></div>
+      </div>
+
+      <div class="fp-content" style="padding-bottom: 48px;">
+
+        <!-- Section: Personalization -->
+        <div class="settings-section-label">Personalization</div>
+        <div class="settings-section">
+
+          <div class="settings-row" data-setting="appearance" data-options='[{"val":"system","label":"System"},{"val":"light","label":"Light"},{"val":"dark","label":"Dark"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:sun-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Appearance</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-appearance">System</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" data-setting="accentColor" data-options='[{"val":"#FF453A","label":"Red"},{"val":"#5E9CFF","label":"Blue"},{"val":"#BF5AF2","label":"Violet"},{"val":"#FF9F43","label":"Amber"},{"val":"#34C759","label":"Green"},{"val":"#FF375F","label":"Pink"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:palette-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Accent Color</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-accentColor">Red</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" data-setting="fontSize" data-options='[{"val":"small","label":"Small"},{"val":"default","label":"Default"},{"val":"large","label":"Large"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:text-bold-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Font Size</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-fontSize">Default</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section: Calendar & Sync -->
+        <div class="settings-section-label">Calendar & Sync</div>
+        <div class="settings-section">
+
+          <div class="settings-row" data-setting="calSync" data-options='[{"val":"none","label":"None"},{"val":"apple","label":"Apple Calendar"},{"val":"google","label":"Google Calendar"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:calendar-add-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Calendar Sync</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-calSync">None</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" data-setting="defaultReminder" data-options='[{"val":"none","label":"None"},{"val":"0","label":"At time of event"},{"val":"5","label":"5 minutes before"},{"val":"15","label":"15 minutes before"},{"val":"30","label":"30 minutes before"},{"val":"60","label":"1 hour before"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:bell-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Default Reminder</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-defaultReminder">None</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section: Notifications -->
+        <div class="settings-section-label">Notifications</div>
+        <div class="settings-section">
+
+          <div class="settings-row" data-setting="notifSound" data-options='[{"val":"none","label":"None"},{"val":"default","label":"Default"},{"val":"chime","label":"Double Chime"},{"val":"synth","label":"Synth Bell"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:volume-loud-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Sound</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-notifSound">Default</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" data-setting="bannerStyle" data-options='[{"val":"minimal","label":"Minimal"},{"val":"full","label":"Full"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:notification-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Banner Style</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-bannerStyle">Minimal</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Section: Data & Privacy -->
+        <div class="settings-section-label">Data & Privacy</div>
+        <div class="settings-section">
+
+          <div class="settings-row settings-row--toggle" id="settingsAutoBackup">
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:cloud-upload-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Auto Backup</span>
+            <div class="settings-row-right">
+              <div class="st-toggle" id="toggleAutoBackup">
+                <div class="st-toggle-knob"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row settings-row--destructive" id="settingsResetAll">
+            <div class="settings-icon-pill" style="color:#FF453A;">
+              <iconify-icon icon="solar:refresh-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label" style="color: #FF453A;">Reset All Data</span>
+            <div class="settings-row-right">
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- Shared floating dropdown panel -->
+      <div class="settings-dropdown" id="settingsDropdown" style="display:none;"></div>
+      <!-- Reset confirm overlay -->
+      <div class="settings-reset-confirm" id="settingsResetConfirm" style="display:none;">
+        <div class="settings-reset-sheet">
+          <p style="font-size:17px; font-weight:600; margin-bottom:8px; color:var(--text-primary);">Reset All Data?</p>
+          <p style="font-size:14px; color:var(--text-secondary); margin-bottom:24px;">This will delete all cards, settings, and history. This cannot be undone.</p>
+          <button id="settingsResetConfirmBtn" style="width:100%; padding:14px; background:#FF453A; color:#fff; border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer; margin-bottom:8px;">Reset Everything</button>
+          <button id="settingsResetCancelBtn" style="width:100%; padding:14px; background:transparent; color:var(--text-secondary); border:none; border-radius:12px; font-size:17px; cursor:pointer;">Cancel</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Full Page Heatmap -->
+    <div class="full-page-view" id="heatmapPage">
+      <div class="fp-header">
+        <button class="icon-btn" id="heatmapBack" style="margin-left:-8px;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <h2 style="font-size: 17px; margin:0 auto; font-weight: 600;">Activity</h2>
+        <div style="width: 32px;"></div> <!-- Spacer for center alignment -->
+      </div>
+      
+      <div class="fp-content" id="heatmapContent">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
