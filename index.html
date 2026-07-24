@@ -379,6 +379,23 @@
       </div>
     </div>
 
+    <!-- Onboarding Page -->
+    <div class="full-page-view" id="onboardingPage" style="z-index: 500; display: flex; flex-direction: column; justify-content: center; align-items: center; background: var(--bg-primary);">
+      <div style="text-align: center; margin-bottom: 60px;">
+        <h1 style="font-size: 48px; font-weight: 700; margin: 0; background: linear-gradient(135deg, #fff 0%, #a0a0a0 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">meye</h1>
+        <p style="font-size: 16px; color: var(--text-secondary); margin-top: 12px; font-weight: 400;">Your beautifully focused life.</p>
+      </div>
+      
+      <!-- Google Sign In Button Container -->
+      <div id="googleSignInBtn"></div>
+      
+      <!-- Fallback minimal button style if we render custom -->
+      <button id="customGoogleBtn" style="display:none; background: #fff; color: #000; border: none; padding: 14px 24px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 12px;">
+        <iconify-icon icon="logos:google-icon" width="20" height="20"></iconify-icon>
+        Continue with Google
+      </button>
+    </div>
+
   </div>
 
   <script type="module" src="/main.js"></script>

@@ -55,6 +55,70 @@ function getWeekDates(centerDate) {
   return dates;
 }
 
+// ============================================
+// Auth & Onboarding Manager
+// ============================================
+const AuthManager = {
+  user: null,
+  init() {
+    this.user = JSON.parse(localStorage.getItem('meyeUser') || 'null');
+    const onboarding = document.getElementById('onboardingPage');
+    
+    if (!this.user) {
+      onboarding.classList.add('is-active');
+      this.initGoogleAuth();
+    } else {
+      onboarding.classList.remove('is-active');
+    }
+  },
+  
+  initGoogleAuth() {
+    // ⚠️ IMPORTANT: Replace with your actual Google Cloud OAuth Client ID!
+    const CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
+    
+    const checkGIS = setInterval(() => {
+      if (window.google && window.google.accounts) {
+        clearInterval(checkGIS);
+        google.accounts.id.initialize({
+          client_id: CLIENT_ID,
+          callback: this.handleCredentialResponse.bind(this)
+        });
+        
+        const btn = document.getElementById('customGoogleBtn');
+        if (btn) {
+          btn.style.display = 'flex';
+          btn.addEventListener('click', () => {
+            google.accounts.id.prompt();
+          });
+        }
+      }
+    }, 500);
+  },
+
+  handleCredentialResponse(response) {
+    try {
+      // Decode JWT payload
+      const payload = JSON.parse(atob(response.credential.split('.')[1]));
+      this.user = {
+        name: payload.name,
+        email: payload.email,
+        picture: payload.picture
+      };
+      localStorage.setItem('meyeUser', JSON.stringify(this.user));
+      document.getElementById('onboardingPage').classList.remove('is-active');
+    } catch (e) {
+      console.error('Error decoding credential:', e);
+    }
+  },
+  
+  logout() {
+    this.user = null;
+    localStorage.removeItem('meyeUser');
+    document.getElementById('onboardingPage').classList.add('is-active');
+    this.initGoogleAuth();
+  }
+};
+
 // --- Mock Data ---
 
 function getMockCards() {
@@ -316,9 +380,9 @@ function init() {
   // Initialize new components
   DateTimePicker.init();
   NotificationEngine.init();
-  SettingsView.init();
   StatsManager.init();
   HeatmapView.init();
+  AuthManager.init();
 }
 
 function bindDateStripEvents() {
