@@ -1840,6 +1840,8 @@ const SettingsView = {
     this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     this.mediaQuery.addEventListener('change', () => this.applyAppearance());
 
+    this.initGoogleAuth();
+
     // Load prefs
     this.prefs = { ...this.DEFAULTS, ...JSON.parse(localStorage.getItem('meyePrefsV2') || '{}') };
     this.applyAll();
@@ -1999,11 +2001,35 @@ const SettingsView = {
     this.closeDropdown();
   },
 
+  initGoogleAuth() {
+    // ⚠️ IMPORTANT: Replace with your actual Google Cloud OAuth Client ID!
+    const CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
+    const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
+    
+    const checkGIS = setInterval(() => {
+      if (window.google && window.google.accounts) {
+        clearInterval(checkGIS);
+        this.tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: CLIENT_ID,
+          scope: SCOPES,
+          callback: (tokenResponse) => {
+            if (tokenResponse && tokenResponse.access_token) {
+              localStorage.setItem('meyeGCalToken', tokenResponse.access_token);
+              alert('Successfully linked Google Calendar! Events can now be fetched.');
+            }
+          },
+        });
+      }
+    }, 500);
+  },
+
   handleCalSync(val) {
-    if (val === 'apple') {
-      alert('📅 Apple Calendar\n\nTo link your Apple Calendar:\n1. Open Safari → Settings → Websites → meye\n2. Allow Calendar access\n\nEvents will then appear automatically on your feed.');
-    } else if (val === 'google') {
-      alert('📅 Google Calendar\n\nGoogle Calendar sync requires OAuth authorization.\nThis feature is coming in the next update — stay tuned!');
+    if (val === 'google') {
+      if (!this.tokenClient) {
+        alert('Google API client is still loading. Please try again in a moment.');
+        return;
+      }
+      this.tokenClient.requestAccessToken({prompt: 'consent'});
     }
   },
 

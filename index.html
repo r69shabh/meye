@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <script src="https://code.iconify.design/iconify-icon/1.0.7/iconify-icon.min.js"></script>
+  <!-- Google Calendar OAuth -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js"></script>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -259,7 +262,7 @@
         <div class="settings-section-label">Calendar & Sync</div>
         <div class="settings-section">
 
-          <div class="settings-row" data-setting="calSync" data-options='[{"val":"none","label":"None"},{"val":"apple","label":"Apple Calendar"},{"val":"google","label":"Google Calendar"}]'>
+          <div class="settings-row" data-setting="calSync" data-options='[{"val":"none","label":"None"},{"val":"google","label":"Google Calendar"}]'>
             <div class="settings-icon-pill">
               <iconify-icon icon="solar:calendar-add-linear" width="22" height="22"></iconify-icon>
             </div>
