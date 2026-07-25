@@ -640,7 +640,7 @@ function init() {
   const appWrapper = document.getElementById('appWrapper');
   if (appSide && appWrapper) {
     const observer = new MutationObserver(() => {
-      const hasActive = appSide.querySelector('.is-active') !== null;
+      const hasActive = appSide.querySelector('.full-page-view.is-active, .composer-overlay.is-open, .speaking-overlay.is-active, .review-overlay.is-active, .expanded-overlay.is-active') !== null;
       appWrapper.classList.toggle('has-active-overlay', hasActive);
     });
     observer.observe(appSide, { attributes: true, subtree: true, attributeFilter: ['class'] });
@@ -1252,7 +1252,8 @@ class VoiceRecorder {
 
         canvasCtx.beginPath();
         canvasCtx.roundRect(x, cx - barH / 2, barW, barH, 2);
-        canvasCtx.fillStyle = `rgba(255,255,255,${alpha})`;
+        const isLight = document.body.classList.contains('light-theme');
+        canvasCtx.fillStyle = isLight ? `rgba(0,0,0,${alpha})` : `rgba(255,255,255,${alpha})`;
         canvasCtx.fill();
       }
     };
@@ -2808,7 +2809,21 @@ const StatsManager = {
       localStorage.setItem('meyeStatsNew', JSON.stringify(this.data));
     }
 
-    // Removed demo data injection
+    // Clear old dummy data for existing users once
+    if (!localStorage.getItem('meyeDummyCleared2')) {
+      const dummyKeys = ['Calisthenics', 'Deep Work', 'Read', 'Meditation'];
+      let clearedAny = false;
+      dummyKeys.forEach(k => {
+        if (this.data[k]) {
+          delete this.data[k];
+          clearedAny = true;
+        }
+      });
+      if (clearedAny) {
+        localStorage.setItem('meyeStatsNew', JSON.stringify(this.data));
+      }
+      localStorage.setItem('meyeDummyCleared2', 'true');
+    }
   },
 
   logCompletion(taskName, isDone) {

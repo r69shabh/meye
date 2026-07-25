@@ -2288,3 +2288,51 @@ button {
   padding: 4px;
   margin: -4px;
 }
+
+/* --- Light Theme Overrides --- */
+.light-theme .bottom-bar {
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 100%);
+}
+
+.light-theme .input-pill {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.1), 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+.light-theme .input-pill:hover {
+  border-color: rgba(0, 0, 0, 0.2);
+}
+.light-theme .composer-sheet {
+  background: #FFFFFF;
+}
+.light-theme .speaking-overlay,
+.light-theme .review-overlay {
+  background: #f7f7f7;
+}
+.light-theme .speaking-overlay .timer-text,
+.light-theme .review-overlay .review-title,
+.light-theme .review-overlay .review-transcript-text {
+  color: #1c1c1e;
+}
+.light-theme .speaking-overlay .close-btn,
+.light-theme .review-overlay .review-back {
+  color: #1c1c1e;
+}
+.light-theme .speaking-overlay .transcript-final {
+  color: rgba(0, 0, 0, 0.9);
+}
+.light-theme .speaking-overlay .transcript-interim {
+  color: rgba(0, 0, 0, 0.5);
+}
+.light-theme .speaking-overlay .transcript-hint {
+  color: rgba(0, 0, 0, 0.3);
+}
+.light-theme .speaking-overlay .control-btn--pause {
+  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.1);
+  color: #1c1c1e;
+}
+.light-theme .speaking-overlay .control-btn--done {
+  background: var(--accent-primary);
+  color: #fff;
+}
