@@ -2239,7 +2239,7 @@ const SettingsView = {
   prefs: {},
 
   DEFAULTS: {
-    appearance: 'system', accentColor: '#FF453A', fontSize: 'default',
+    appearance: 'system', accentColor: '#FF453A',
     calSync: 'none', defaultReminder: 'none',
     notifSound: 'default', bannerStyle: 'minimal',
     autoBackup: false
@@ -2385,7 +2385,7 @@ const SettingsView = {
   applyAll() {
     this.applyAppearance();
     this.applyAccentColor(this.prefs.accentColor);
-    this.applyFontSize(this.prefs.fontSize);
+
     NotificationEngine.soundEnabled = this.prefs.notifSound !== 'none';
 
     // Update all value labels
@@ -2419,13 +2419,6 @@ const SettingsView = {
   applyAccentColor(color) {
     document.documentElement.style.setProperty('--accent-primary', color);
   },
-
-  applyFontSize(size) {
-    const scale = { small: '0.9', default: '1', large: '1.15' };
-    document.documentElement.style.setProperty('--font-scale', scale[size] || '1');
-    document.body.style.zoom = '1'; // reset zoom just in case
-  },
-
   openDropdown(rowEl) {
     const setting = rowEl.dataset.setting;
     const options = JSON.parse(rowEl.dataset.options || '[]');
