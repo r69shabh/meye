@@ -2738,6 +2738,7 @@ const SettingsView = {
       const item = e.target.closest('.settings-dropdown-item');
       if (item) {
         this.selectOption(item.dataset.val, item.dataset.label);
+      }
     });
 
     // GitHub Device Flow Overlay
