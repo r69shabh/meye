@@ -2421,8 +2421,9 @@ const SettingsView = {
   },
 
   applyFontSize(size) {
-    const scale = { small: '0.9', default: '1', large: '1.1' };
-    document.body.style.zoom = scale[size] || '1';
+    const scale = { small: '0.9', default: '1', large: '1.15' };
+    document.documentElement.style.setProperty('--font-scale', scale[size] || '1');
+    document.body.style.zoom = '1'; // reset zoom just in case
   },
 
   openDropdown(rowEl) {
