@@ -260,12 +260,55 @@
 
         </div>
 
+        <!-- Section: Notifications -->
+        <div class="settings-section-label">Notifications</div>
+        <div class="settings-section">
+
+          <div class="settings-row" data-setting="defaultReminder" data-options='[{"val":"none","label":"None"},{"val":"0","label":"At time of event"},{"val":"5","label":"5 minutes before"},{"val":"15","label":"15 minutes before"},{"val":"30","label":"30 minutes before"},{"val":"60","label":"1 hour before"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:bell-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Default Reminder</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-defaultReminder">None</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" data-setting="notifSound" data-options='[{"val":"none","label":"None"},{"val":"default","label":"Default"},{"val":"chime","label":"Double Chime"},{"val":"synth","label":"Synth Bell"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:volume-loud-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Sound</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-notifSound">Default</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" data-setting="bannerStyle" data-options='[{"val":"minimal","label":"Minimal"},{"val":"full","label":"Full"}]'>
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:notification-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Banner Style</span>
+            <div class="settings-row-right">
+              <span class="settings-value" id="sv-bannerStyle">Minimal</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+        </div>
+
         <!-- Section: Sync & Backup -->
         <div class="settings-section-label">Sync & Backup</div>
         <div class="settings-section">
 
           <div class="settings-row" id="settingsGoogleCalSync">
-            <div class="settings-icon-pill" style="color:#FFF; background:#4285F4;">
+            <div class="settings-icon-pill">
               <iconify-icon icon="solar:calendar-add-linear" width="22" height="22"></iconify-icon>
             </div>
             <span class="settings-row-label">Google Calendar Sync</span>
@@ -279,7 +322,7 @@
 
           <div class="settings-row" id="settingsGitHubSync">
             <div class="settings-icon-pill" style="color:#FFF; background:#333;">
-              <iconify-icon icon="fa6-brands:github" width="22" height="22"></iconify-icon>
+              <iconify-icon icon="fa-brands:github" width="22" height="22"></iconify-icon>
             </div>
             <span class="settings-row-label">GitHub Gist Sync</span>
             <div class="settings-row-right">
