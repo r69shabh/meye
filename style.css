@@ -142,6 +142,11 @@ textarea:focus-visible {
   }
 }
 
+/* Fix iOS Safari touch target bug by enabling pointer events on the parent wrapper */
+.app-wrapper.has-active-overlay .app-container--side {
+  pointer-events: auto;
+}
+
 /* --- Desktop Split View --- */
 @media (min-width: 800px) {
   .app-wrapper {
