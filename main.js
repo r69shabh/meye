@@ -447,7 +447,7 @@ function init() {
         renderCardFeed(allCards, selectedDate, currentDate);
         bindDateStripEvents();
       }
-    });
+    }, true); // quickSelect = true
   });
 
   // Render date strip
@@ -1735,6 +1735,10 @@ const DateTimePicker = {
     this.wheelMinute = document.getElementById('dtWheelMinute');
     this.wheelAmPm = document.getElementById('dtWheelAmPm');
 
+    this.overlay.addEventListener('click', (e) => {
+      if (e.target === this.overlay) this.close();
+    });
+
     document.getElementById('dtCancel').addEventListener('click', () => this.close());
     document.getElementById('dtDone').addEventListener('click', () => {
       if (this.onSave) {
@@ -1765,6 +1769,11 @@ const DateTimePicker = {
       this.selectedDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       this.renderCalendar();
       this.validateDoneButton();
+
+      if (this.quickSelect) {
+        if (this.onSave) this.onSave(this.selectedDateStr, this.selectedTimeStr);
+        this.close();
+      }
     });
 
     // Populate wheels
@@ -1835,8 +1844,15 @@ const DateTimePicker = {
     }
   },
 
-  open(mode, initialDate, initialTime, callback) {
+  open(mode, initialDate, initialTime, callback, quickSelect = false) {
     this.onSave = callback;
+    this.quickSelect = quickSelect;
+    
+    const headerEl = document.querySelector('.dt-header');
+    if (headerEl) {
+      headerEl.style.display = quickSelect ? 'none' : 'flex';
+    }
+
     this.selectedDateStr = initialDate;
     this.selectedTimeStr = initialTime || '12:00';
     this.switchMode(mode);
