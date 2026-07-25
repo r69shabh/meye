@@ -1949,12 +1949,13 @@ button {
   display: flex;
   flex-direction: column;
   transform: translateY(100%);
-  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0);
 }
 .full-page-view.is-active {
   transform: translateY(0);
   pointer-events: auto;
+  box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
 }
 .fp-header {
   display: flex;
@@ -2335,4 +2336,30 @@ button {
 .light-theme .speaking-overlay .control-btn--done {
   background: var(--accent-primary);
   color: #fff;
+}
+.light-theme .composer-input {
+  color: #000;
+}
+.light-theme .composer-input::placeholder {
+  color: rgba(0,0,0,0.4);
+}
+.light-theme .type-chip {
+  background: rgba(0,0,0,0.06);
+  color: var(--text-secondary);
+}
+.light-theme .type-chip.active {
+  background: #000;
+  color: #fff;
+}
+.light-theme .composer-cancel {
+  background: rgba(0,0,0,0.06);
+  color: var(--text-primary);
+}
+.light-theme .date-cell--selected {
+  border-color: rgba(0, 0, 0, 0.15);
+  background: rgba(0, 0, 0, 0.04);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+}
+.light-theme .composer-drag-handle {
+  background: rgba(0,0,0,0.15);
 }

@@ -2894,6 +2894,10 @@ const HeatmapView = {
       html += `</div></div>`; // close grid, section
     });
 
+    if (activeTasks.size === 0) {
+      html = `<div style="text-align: center; margin-top: 60px; color: var(--text-tertiary); font-size: 15px;">No activity data yet.<br>Start recording tasks to see your heatmap.</div>`;
+    }
+
     this.content.innerHTML = html;
   }
 };
