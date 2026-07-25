@@ -38,6 +38,7 @@ const CustomDialog = {
 
 const OverlayManager = {
   activeObj: null,
+  parentObj: null,
   isPopping: false,
 
   init() {
@@ -80,6 +81,7 @@ const OverlayManager = {
   
   closeCurrent() {
     if (!this.activeObj) return;
+    const closingObj = this.activeObj;
     
     if (typeof this.activeObj.cancel === 'function') {
       this.activeObj.cancel();
@@ -91,7 +93,9 @@ const OverlayManager = {
       this.activeObj.overlay.classList.remove('is-active');
     }
     
-    this.activeObj = null;
+    // A nested child can restore its parent while it is closing. Do not erase
+    // that restored state.
+    if (this.activeObj === closingObj) this.activeObj = null;
     if (!this.isPopping) {
       history.back();
     }
@@ -104,6 +108,23 @@ const OverlayManager = {
         history.back();
       }
     }
+  },
+
+  // Small, nested views such as the date/time picker must sit above the
+  // current full-screen view. Keeping the parent lets browser Back close the
+  // picker first instead of accidentally closing the editor beneath it.
+  openChild(obj) {
+    if (this.activeObj === obj) return;
+    this.parentObj = this.activeObj;
+    this.activeObj = obj;
+    if (!this.isPopping) history.pushState({ overlayOpen: true, childOverlay: true }, '');
+  },
+
+  notifyChildClosed(obj) {
+    if (this.activeObj !== obj) return;
+    this.activeObj = this.parentObj;
+    this.parentObj = null;
+    if (!this.isPopping) history.back();
   }
 };
 
@@ -161,6 +182,14 @@ const NotificationManager = {
         if (reg.waiting && navigator.serviceWorker.controller) {
           showUpdateToast();
         }
+
+        // A long-lived PWA needs to actively ask the browser for a newer
+        // worker; otherwise an update can remain undiscovered for days.
+        const checkForUpdate = () => reg.update().catch(() => {});
+        window.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') checkForUpdate();
+        });
+        setInterval(checkForUpdate, 60 * 60 * 1000);
         
         // Reload when the new worker takes over
         let refreshing = false;
@@ -555,12 +584,12 @@ function renderDateStrip(weekDates, selectedDate, cardsData) {
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
     return `
-      <div class="date-cell ${isSelected ? 'date-cell--selected' : ''}"
-           data-date="${key}" role="button" tabindex="0">
+      <button type="button" class="date-cell ${isSelected ? 'date-cell--selected' : ''}"
+           data-date="${key}" aria-pressed="${isSelected}">
         <span class="date-day">${dayLabels[dayIndex]}</span>
         <span class="date-num">${date.getDate()}</span>
         <span class="date-dot" style="opacity: ${isToday ? '1' : '0'}; background: var(--text-primary);"></span>
-      </div>
+      </button>
     `;
   }).join('');
 }
@@ -676,6 +705,12 @@ function syncAndSave() {
   }
 }
 
+function formatTime(value) {
+  if (!value || !/^\d{2}:\d{2}$/.test(value)) return '';
+  const [hour, minute] = value.split(':').map(Number);
+  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
+}
+
 let currentDate = new Date();
 let selectedDate = new Date();
 let allCards = loadCards();
@@ -731,6 +766,8 @@ function init() {
 
 function bindDateStripEvents() {
   const track = document.getElementById('dateStripTrack');
+  if (track.dataset.eventsBound === 'true') return;
+  track.dataset.eventsBound = 'true';
 
   track.addEventListener('click', (e) => {
     const cell = e.target.closest('.date-cell');
@@ -750,8 +787,6 @@ function bindDateStripEvents() {
     // Filter cards for selected date (show all cards from that date onward)
     renderCardFeed(allCards, selectedDate, currentDate);
 
-    // Re-bind
-    bindDateStripEvents();
   });
 
   // Keyboard navigation
@@ -777,14 +812,15 @@ function bindCardEvents() {
       checkbox.dataset.checked = !isChecked;
       checkbox.classList.toggle('checkbox--checked');
       
-      const cardId = parseInt(card.dataset.cardId);
-      const cardData = allCards.find(c => c.id === cardId);
+      const cardId = card.dataset.cardId;
+      const cardData = allCards.find(c => String(c.id) === cardId);
       if (cardData) {
         cardData.checked = !isChecked;
         // Log to StatsManager if it's a daily task or routine
         if (cardData.date === 'daily' || cardData.type === 'routine') {
           StatsManager.logCompletion(cardData.content, !isChecked);
         }
+        syncAndSave();
       }
 
       const content = card.querySelector('.card-content');
@@ -804,8 +840,7 @@ function bindCardEvents() {
     card.style.transform = 'scale(0.97)';
     setTimeout(() => {
       card.style.transform = '';
-      const cardId = parseInt(card.dataset.cardId);
-      ExpandedCardView.open(cardId);
+      ExpandedCardView.open(card.dataset.cardId);
     }, 100);
   });
 }
@@ -909,8 +944,11 @@ const ExpandedCardView = {
   async open(cardId) {
     const proceed = await OverlayManager.requestOpen(this);
     if (!proceed) return;
-    this.currentCard = allCards.find(c => c.id === cardId);
-    if (!this.currentCard) return;
+    this.currentCard = allCards.find(c => String(c.id) === String(cardId));
+    if (!this.currentCard) {
+      OverlayManager.notifyClosed(this);
+      return;
+    }
 
     if (!this.currentCard.transcript) {
       this.menuTranscript.style.opacity = '0.3';
@@ -987,33 +1025,40 @@ const ExpandedCardView = {
       html = `
         <div class="exp-todo-view">
           <textarea class="exp-todo-title" id="editContent" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'" placeholder="Task...">${c.content}</textarea>
-          <div class="exp-todo-field" id="todoDateBtn">
+          <button type="button" class="exp-todo-field" id="todoDateBtn" aria-label="Edit task date">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="exp-todo-field-text" id="displayTodoDate">${dateStr}</span>
-          </div>
-          <div class="exp-todo-field" id="todoTimeBtn">
+          </button>
+          <button type="button" class="exp-todo-field" id="todoTimeBtn" aria-label="Edit task time">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span class="exp-todo-field-text ${c.reminderTime ? '' : 'exp-todo-field-empty'}" id="displayTodoTime">${timeDisplay}</span>
-          </div>
+          </button>
           ${c.details ? `<p class="exp-todo-note">${c.details}</p>` : ''}
         </div>
       `;
     }
     else if (c.type === 'calendar') {
+      let dateStr = 'Anytime';
+      if (c.date) {
+        const dPart = c.date.split('-');
+        const d = new Date(dPart[0], dPart[1] - 1, dPart[2]);
+        dateStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      }
+      const [startRaw = '', endRaw = ''] = (c.eventTime || '').split('–').map(value => value.trim());
       html = `
         <div class="exp-cal-view">
           <textarea class="exp-todo-title" id="editContent" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'" placeholder="Event...">${c.content}</textarea>
-          <div class="exp-todo-field" id="calDateBtn">
+          <button type="button" class="exp-todo-field" id="calDateBtn" aria-label="Edit event date">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="exp-todo-field-text" id="displayCalDate">${dateStr}</span>
-          </div>
+          </button>
           <div style="display:flex; gap:16px;">
-            <div class="exp-todo-field" id="calStartTimeBtn" style="flex:1;">
-              <span class="exp-todo-field-text" id="displayCalStartTime" style="color: ${startRaw ? 'var(--text-primary)' : 'var(--text-tertiary)'}">${fmtT(startRaw) || 'Start time'}</span>
-            </div>
-            <div class="exp-todo-field" id="calEndTimeBtn" style="flex:1;">
-              <span class="exp-todo-field-text" id="displayCalEndTime" style="color: ${endRaw ? 'var(--text-primary)' : 'var(--text-tertiary)'}">${fmtT(endRaw) || 'End time'}</span>
-            </div>
+            <button type="button" class="exp-todo-field" id="calStartTimeBtn" style="flex:1;" aria-label="Edit event start time">
+              <span class="exp-todo-field-text" id="displayCalStartTime" style="color: ${startRaw ? 'var(--text-primary)' : 'var(--text-tertiary)'}">${formatTime(startRaw) || 'Start time'}</span>
+            </button>
+            <button type="button" class="exp-todo-field" id="calEndTimeBtn" style="flex:1;" aria-label="Edit event end time">
+              <span class="exp-todo-field-text" id="displayCalEndTime" style="color: ${endRaw ? 'var(--text-primary)' : 'var(--text-tertiary)'}">${formatTime(endRaw) || 'End time'}</span>
+            </button>
           </div>
           <div class="exp-todo-field">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -1104,7 +1149,7 @@ const ExpandedCardView = {
         if (timeVal) {
           startRaw = timeVal;
           c.eventTime = `${startRaw || ''} – ${endRaw || ''}`;
-          document.getElementById('displayCalStartTime').textContent = window.formatTimeStr(timeVal);
+          document.getElementById('displayCalStartTime').textContent = formatTime(timeVal);
           document.getElementById('displayCalStartTime').style.color = 'var(--text-primary)';
         }
         if (dateVal) {
@@ -1118,7 +1163,7 @@ const ExpandedCardView = {
         if (timeVal) {
           endRaw = timeVal;
           c.eventTime = `${startRaw || ''} – ${endRaw || ''}`;
-          document.getElementById('displayCalEndTime').textContent = window.formatTimeStr(timeVal);
+          document.getElementById('displayCalEndTime').textContent = formatTime(timeVal);
           document.getElementById('displayCalEndTime').style.color = 'var(--text-primary)';
         }
         if (dateVal) {
@@ -1207,11 +1252,9 @@ const ExpandedCardView = {
       })).filter(item => item.text.trim() !== '');
     }
 
-    const cardEl = document.querySelector(`.card[data-card-id="${c.id}"]`);
-    if (cardEl) {
-      const contentEl = cardEl.querySelector('.card-content');
-      if (contentEl) contentEl.textContent = c.content;
-    }
+    syncAndSave();
+    renderCardFeed(allCards, selectedDate, currentDate);
+    renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
     this.currentCard = null;
   }
 };
@@ -2147,6 +2190,14 @@ const DateTimePicker = {
     this.wheelHour.addEventListener('scroll', updateTime);
     this.wheelMinute.addEventListener('scroll', updateTime);
     this.wheelAmPm.addEventListener('scroll', updateTime);
+    [this.wheelHour, this.wheelMinute, this.wheelAmPm].forEach(wheel => {
+      wheel.addEventListener('click', (event) => {
+        const item = event.target.closest('.dt-wheel-item');
+        if (!item) return;
+        wheel.scrollTo({ top: item.offsetTop - wheel.clientHeight / 2 + item.offsetHeight / 2, behavior: 'smooth' });
+        setTimeout(updateTime, 180);
+      });
+    });
   },
 
   _getCenterItem(wheel) {
@@ -2223,7 +2274,7 @@ const DateTimePicker = {
         let [h, m] = this.selectedTimeStr.split(':').map(Number);
         const ampm = h >= 12 ? 'PM' : 'AM';
         h = h % 12 || 12;
-        this.timeDisplay.textContent = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+        if (this.timeDisplay) this.timeDisplay.textContent = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
         
         setTimeout(() => {
           const itemH = this.wheelHour.querySelector(`[data-val="${h}"]`);
@@ -2237,11 +2288,13 @@ const DateTimePicker = {
       }
     }
     
+    OverlayManager.openChild(this);
     this.overlay.classList.add('is-active');
   },
   
   close() {
     this.overlay.classList.remove('is-active');
+    OverlayManager.notifyChildClosed(this);
   },
 
   renderCalendar() {
@@ -2263,7 +2316,7 @@ const DateTimePicker = {
       let cls = 'dt-day';
       if (cellDateStr === todayStr) cls += ' today';
       if (cellDateStr === this.selectedDateStr) cls += ' selected';
-      html += `<div class="${cls}">${i}</div>`;
+      html += `<button type="button" class="${cls}" aria-label="${MONTHS[m]} ${i}, ${y}" aria-pressed="${cellDateStr === this.selectedDateStr}">${i}</button>`;
     }
     this.daysGrid.innerHTML = html;
   }
@@ -2370,80 +2423,22 @@ const SyncManager = {
       statusEl.textContent = this.pat ? (this.gistId ? 'Active' : 'PAT Saved') : 'Not Configured';
       statusEl.style.color = (this.pat && this.gistId) ? '#34C759' : '';
     }
-    if (syncNowBtn) {
-      syncNowBtn.style.display = (this.pat && this.gistId) ? 'block' : 'none';
-    }
+    if (syncNowBtn) syncNowBtn.style.display = this.pat ? 'block' : 'none';
   },
 
-  async startGitHubLogin() {
-    document.getElementById('githubLoginInitial').style.display = 'none';
-    const codeArea = document.getElementById('githubDeviceCodeArea');
-    codeArea.style.display = 'block';
-    const userCodeEl = document.getElementById('githubUserCode');
-    userCodeEl.textContent = 'Loading...';
+  // GitHub Device Flow logic removed due to CORS limitations in PWA environment
+  // User must manually paste a PAT instead.
 
-    try {
-      // 1. Request Device Code
-      const res = await fetch(`https://github.com/login/device/code?client_id=${this.CLIENT_ID}&scope=gist`, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' }
-      });
-      const data = await res.json();
-      
-      if (data.error) {
-        userCodeEl.textContent = 'Error';
-        alert('GitHub API Error: ' + data.error_description);
-        return;
-      }
 
-      userCodeEl.textContent = data.user_code;
-      
-      // 2. Start Polling
-      this.pollForToken(data.device_code, data.interval || 5);
-      
-    } catch (err) {
-      console.error(err);
-      userCodeEl.textContent = 'Error';
-    }
-  },
-
-  pollForToken(deviceCode, intervalSec) {
-    if (this.pollInterval) clearInterval(this.pollInterval);
-    
-    this.pollInterval = setInterval(async () => {
-      try {
-        const res = await fetch(`https://github.com/login/oauth/access_token?client_id=${this.CLIENT_ID}&device_code=${deviceCode}&grant_type=urn:ietf:params:oauth:grant-type:device_code`, {
-          method: 'POST',
-          headers: { 'Accept': 'application/json' }
-        });
-        const data = await res.json();
-
-        if (data.access_token) {
-          clearInterval(this.pollInterval);
-          this.pat = data.access_token;
-          localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
-          
-          document.getElementById('settingsGitHubOverlay').style.display = 'none';
-          this.updateStatusUI();
-          this.syncToGitHub();
-          alert("GitHub Login Successful!");
-        } else if (data.error !== 'authorization_pending') {
-          // If expired or other error
-          clearInterval(this.pollInterval);
-          alert('Login failed or expired. Please try again.');
-          document.getElementById('settingsGitHubOverlay').style.display = 'none';
-        }
-      } catch (err) {
-        console.error("Polling error", err);
-      }
-    }, intervalSec * 1000);
-  },
-
-  cancelLogin() {
-    if (this.pollInterval) clearInterval(this.pollInterval);
-    document.getElementById('githubLoginInitial').style.display = 'block';
-    document.getElementById('githubDeviceCodeArea').style.display = 'none';
-    document.getElementById('settingsGitHubOverlay').style.display = 'none';
+  async savePersonalAccessToken() {
+    const input = document.getElementById('githubPatInput');
+    const token = input?.value.trim();
+    if (!token) return;
+    this.pat = token;
+    localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
+    if (input) input.value = '';
+    this.updateStatusUI();
+    await this.syncToGitHub();
   },
 
   async syncToGitHub() {
@@ -2476,20 +2471,21 @@ const SyncManager = {
           })
         });
         const data = await res.json();
-        if (data.id) {
+        if (res.ok && data.id) {
           this.gistId = data.id;
           localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
         } else {
           throw new Error('Failed to create Gist');
         }
       } else {
-        await fetch(`https://api.github.com/gists/${this.gistId}`, {
+        const res = await fetch(`https://api.github.com/gists/${this.gistId}`, {
           method: 'PATCH',
           headers,
           body: JSON.stringify({
             files: { "meye_backup.json": { content: JSON.stringify(payload, null, 2) } }
           })
         });
+        if (!res.ok) throw new Error(`Failed to update Gist (${res.status})`);
       }
       
       if(btn) btn.textContent = "Synced!";
@@ -2512,6 +2508,7 @@ const SyncManager = {
           'Authorization': `Bearer ${this.pat}`
         }
       });
+      if (!res.ok) throw new Error(`Failed to load Gist (${res.status})`);
       const data = await res.json();
       if (data.files && data.files['meye_backup.json']) {
         const content = JSON.parse(data.files['meye_backup.json'].content);
@@ -2620,8 +2617,8 @@ const SyncManager = {
           if (ev.start && ev.start.dateTime) {
             const startDate = new Date(ev.start.dateTime);
             const endDate = new Date(ev.end.dateTime);
-            const formatTime = (d) => d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-            timeStr = `${formatTime(startDate)} - ${formatTime(endDate)}`;
+            const formatGoogleTime = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            timeStr = `${formatGoogleTime(startDate)} – ${formatGoogleTime(endDate)}`;
           } else {
             timeStr = 'All Day';
           }
@@ -2741,19 +2738,18 @@ const SettingsView = {
       const item = e.target.closest('.settings-dropdown-item');
       if (item) {
         this.selectOption(item.dataset.val, item.dataset.label);
-        return;
-      }
     });
 
     // GitHub Device Flow Overlay
-    document.getElementById('btnStartGitHubLogin').addEventListener('click', () => {
-      SyncManager.startGitHubLogin();
-    });
+
     document.getElementById('btnCancelGitHubPat').addEventListener('click', () => {
-      SyncManager.cancelLogin();
+      document.getElementById('settingsGitHubOverlay').style.display = 'none';
+    });
+    document.getElementById('btnSaveGitHubPat').addEventListener('click', () => {
+      SettingsView.savePersonalAccessToken();
     });
     document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
-      SyncManager.syncToGitHub();
+      SettingsView.syncToGitHub();
     });
 
     // Google Calendar Overlay
@@ -3076,4 +3072,3 @@ function bindInputBarEvents() {
 
 // --- Boot ---
 document.addEventListener('DOMContentLoaded', init);
-

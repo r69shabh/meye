@@ -395,16 +395,12 @@
           </div>
           <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Securely sync your tasks and routines across all devices using GitHub Gists. Zero servers, maximum privacy.</p>
           
-          <div id="githubLoginInitial">
-            <p style="font-size:13px; color:var(--text-tertiary); margin-bottom:16px;">Click below to generate a secure login code.</p>
-            <button class="btn-primary" id="btnStartGitHubLogin" style="width:100%; margin-bottom:12px; padding:14px; background:var(--text-primary); color:var(--bg-primary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer;">Start GitHub Login</button>
-          </div>
+          <div style="margin: 8px 0;">
 
-          <div id="githubDeviceCodeArea" style="display:none; text-align:center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 16px;">
-            <p style="font-size:14px; margin: 0 0 8px 0;">1. Open <a href="https://github.com/login/device" target="_blank" style="color:var(--accent-primary); text-decoration:none; font-weight:600;">github.com/login/device</a></p>
-            <p style="font-size:14px; margin: 0 0 8px 0;">2. Enter this code:</p>
-            <h1 id="githubUserCode" style="font-family: monospace; font-size: 32px; letter-spacing: 4px; margin: 8px 0; color: var(--text-primary);">----</h1>
-            <p style="font-size:12px; color:var(--text-tertiary); margin: 0;">Waiting for authorization... <span class="spinner" style="display:inline-block; margin-left:4px;">⏳</span></p>
+          <div style="margin: 16px 0; border-top: 1px solid rgba(255,255,255,0.1); padding-top:16px;">
+            <label for="githubPatInput" style="display:block; font-size:13px; color:var(--text-secondary); margin-bottom:8px;">Paste a GitHub token with the <code>gist</code> scope</label>
+            <input id="githubPatInput" type="password" autocomplete="off" placeholder="github_pat_…" style="width:100%; min-height:44px; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,0.16); background:transparent; color:var(--text-primary); font:inherit;">
+            <button id="btnSaveGitHubPat" type="button" style="width:100%; min-height:44px; margin-top:10px; background:var(--text-primary); color:var(--bg-primary); border:none; border-radius:12px; font-size:15px; font-weight:600; cursor:pointer;">Save token and sync</button>
           </div>
 
           <button id="btnCancelGitHubPat" style="width:100%; padding:14px; background:transparent; color:var(--text-secondary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer;">Cancel</button>
@@ -653,9 +649,9 @@
   </div>
 
   <!-- Update Available Toast -->
-  <div class="update-toast" id="updateToast">
-    <span>Update Available. Tap to refresh.</span>
-  </div>
+  <button class="update-toast" id="updateToast" type="button" aria-live="polite">
+    Update available. Tap to refresh.
+  </button>
 
   <script type="module" src="/main.js"></script>
 </body>

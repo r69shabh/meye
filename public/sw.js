@@ -1,7 +1,6 @@
 const CACHE_NAME = 'meye-cache-v6';
 
 self.addEventListener('install', event => {
-  self.skipWaiting(); // Force the waiting service worker to become the active service worker.
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       // In Vite prod, main.js/style.css aren't at root, but we can cache the root at least.
