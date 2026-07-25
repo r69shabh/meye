@@ -437,22 +437,10 @@ let allCards = loadCards();
 function init() {
   // Set header date
   document.getElementById('headerDate').textContent = formatDate(currentDate);
-  const headerPicker = document.getElementById('headerDatePicker');
-  if (headerPicker) {
-    document.getElementById('headerDateWrapper').addEventListener('click', () => {
-      try {
-        headerPicker.showPicker();
-      } catch (e) {
-        // Fallback for browsers that don't support showPicker (though most modern ones do)
-        headerPicker.focus();
-        headerPicker.click();
-      }
-    });
-
-    headerPicker.addEventListener('change', (e) => {
-      const val = e.target.value;
-      if (val) {
-        const parts = val.split('-');
+  document.getElementById('headerDateWrapper').addEventListener('click', () => {
+    DateTimePicker.open('date', formatDateKey(selectedDate), null, (newDateKey, newTime) => {
+      if (newDateKey) {
+        const parts = newDateKey.split('-');
         selectedDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
         document.getElementById('headerDate').textContent = formatDate(selectedDate);
         renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
@@ -460,7 +448,7 @@ function init() {
         bindDateStripEvents();
       }
     });
-  }
+  });
 
   // Render date strip
   const weekDates = getWeekDates(selectedDate);
@@ -2001,7 +1989,7 @@ const SyncManager = {
   // ⚠️ IMPORTANT: Replace this with your GitHub OAuth App Client ID!
   // To get one: GitHub Settings -> Developer Settings -> OAuth Apps -> New OAuth App
   // Enable "Device Flow" in the OAuth App settings!
-  CLIENT_ID: 'Iv23lib6lB3381BszT3H', // I've provided a placeholder, replace with your own.
+  CLIENT_ID: 'Ov23li20E2Iu1hJubM3e', 
 
   init() {
     const savedState = JSON.parse(localStorage.getItem('meyeSyncState') || '{}');
