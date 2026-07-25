@@ -180,114 +180,7 @@ const TourManager = {
 // --- Mock Data ---
 
 function getMockCards() {
-  const today = new Date();
-  const todayKey = formatDateKey(today);
-
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-  const yesterdayKey = formatDateKey(yesterday);
-
-  const twoDaysAgo = new Date(today);
-  twoDaysAgo.setDate(today.getDate() - 2);
-  const twoDaysAgoKey = formatDateKey(twoDaysAgo);
-
-  return [
-    {
-      id: 1,
-      type: 'note',
-      date: todayKey,
-      content: "You're letting one good run stand in for feeling like yourself again.",
-      details: "You started the week behind and mostly talked about time. Who took it, where it went. The Figma review on Tuesday and the deck revisions on Wednesday were the same story told twice: you said yes, the afternoon vanished, and the work you cared about moved to tomorrow. But Thursday morning sounded different. The run came back, and with it a sentence you haven't said in a while. Feeling like a person again. The contrast is worth noticing: the days you resented were the ones structured around other people's requests, and the day you liked started with twenty minutes that were only yours.",
-      tags: ['The Morning Run', 'Coming Back To A Habit'],
-      extraTags: 2
-    },
-    {
-      id: 2,
-      type: 'todo',
-      reminderTime: '07:21',
-      date: todayKey,
-      content: "Planning the day",
-      tags: [],
-      extraTags: 0,
-      checked: false
-    },
-    {
-      id: 3,
-      type: 'calendar',
-      eventTime: '14:00 - 15:00',
-      date: todayKey,
-      content: "Design review with the team",
-      tags: ['Work'],
-      extraTags: 0
-    },
-    {
-      id: 4,
-      type: 'note',
-      date: yesterdayKey,
-      content: "You keep calling everyone else's work urgent and your own the thing that can wait.",
-      tags: ['The Figma R...', 'Saying Yes T...', 'Friday Dea...'],
-      extraTags: 2
-    },
-    {
-      id: 5,
-      type: 'todo',
-      reminderTime: '21:42',
-      date: yesterdayKey,
-      content: "Read chapter 4 of the systems design book",
-      tags: ['Reading'],
-      extraTags: 0,
-      checked: true
-    },
-    {
-      id: 6,
-      type: 'note',
-      date: twoDaysAgoKey,
-      content: "The apartment stopped being a place and the moment it became a choice you were making together.",
-      tags: ['Reflection', 'Moving Out'],
-      extraTags: 1
-    },
-    {
-      id: 7,
-      type: 'calendar',
-      eventTime: '10:00 - 10:30',
-      date: twoDaysAgoKey,
-      content: "Coffee with Arjun",
-      tags: ['Personal'],
-      extraTags: 0
-    },
-    {
-      id: 8,
-      type: 'todo',
-      date: null,
-      content: "Buy groceries for the week",
-      tags: [],
-      extraTags: 0,
-      checked: false
-    },
-    {
-      id: 9,
-      type: 'todo',
-      date: null,
-      content: "Call mom",
-      tags: [],
-      extraTags: 0,
-      checked: false
-    },
-    {
-      id: 10,
-      type: 'routine',
-      date: 'daily',
-      content: "Calisthenics — Pull day",
-      tags: ['Fitness'],
-      extraTags: 0,
-      checked: false,
-      subItems: [
-        { text: 'Bent over row', meta: '3x15', done: false },
-        { text: 'Inverted row', meta: '3x15', done: false },
-        { text: 'Floor Y raise', meta: '3x15', done: false }
-      ]
-    }
-  ];
+  return [];
 }
 
 // --- Rendering ---
@@ -470,6 +363,17 @@ function init() {
   TourManager.init();
   SettingsView.init();
   SyncManager.init();
+
+  // Track active overlays for desktop split view
+  const appSide = document.getElementById('appSide');
+  const appWrapper = document.getElementById('appWrapper');
+  if (appSide && appWrapper) {
+    const observer = new MutationObserver(() => {
+      const hasActive = appSide.querySelector('.is-active') !== null;
+      appWrapper.classList.toggle('has-active-overlay', hasActive);
+    });
+    observer.observe(appSide, { attributes: true, subtree: true, attributeFilter: ['class'] });
+  }
 }
 
 function bindDateStripEvents() {

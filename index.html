@@ -17,7 +17,8 @@
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div class="app-container" id="app">
+  <div class="app-wrapper" id="appWrapper">
+    <div class="app-container app-container--main" id="app">
     <!-- Header -->
     <header class="header">
       <div class="header-actions">
@@ -55,7 +56,13 @@
       </div>
     </div>
 
-    <!-- Typed Composer Overlay -->
+    <!-- End Main Container -->
+    </div>
+
+    <!-- Side Container for Overlays -->
+    <div class="app-container--side" id="appSide">
+      <div class="app-side-inner">
+        <!-- Typed Composer Overlay -->
     <div class="composer-overlay" id="composerOverlay">
       <div class="composer-backdrop" id="composerBackdrop"></div>
       <div class="composer-sheet" id="composerSheet">
@@ -577,6 +584,9 @@
       </div>
     </div>
 
+    <!-- End Side Container -->
+      </div>
+    </div>
   </div>
 
   <script type="module" src="/main.js"></script>

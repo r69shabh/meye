@@ -78,12 +78,19 @@ button {
   color: var(--text-primary);
 }
 
-/* --- App Container (9:16 fixed) --- */
-.app-container {
+/* --- App Layout Wrapper --- */
+.app-wrapper {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+}
+
+/* --- App Containers (9:16 fixed) --- */
+.app-container {
   aspect-ratio: 9 / 16;
   height: min(100vh, 100dvh);
   max-height: 100vh;
@@ -93,7 +100,28 @@ button {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 0;
+  position: relative;
+}
+
+.app-container--main {
+  z-index: 1;
+}
+
+.app-container--side {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  pointer-events: none;
+  background: transparent;
+}
+.app-container--side > .app-side-inner {
+  position: absolute;
+  inset: 0;
+}
+.app-container--side > .app-side-inner > * {
+  pointer-events: auto;
 }
 
 /* On screens wider than the container, add subtle shadow */
@@ -104,6 +132,46 @@ button {
     box-shadow:
       0 0 0 1px rgba(255, 255, 255, 0.06),
       0 25px 60px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* --- Desktop Split View --- */
+@media (min-width: 800px) {
+  .app-wrapper {
+    flex-direction: row;
+    gap: 0;
+  }
+  
+  .app-container--side {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+    width: 0;
+    margin-left: 0;
+    opacity: 0;
+    pointer-events: none;
+    background: var(--bg-primary);
+    transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), margin-left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease-out;
+  }
+  
+  .app-side-inner {
+    width: calc(min(98vh, 98dvh) * (9 / 16));
+    height: 100%;
+    position: relative;
+    opacity: 0;
+    transition: opacity 0.4s ease-out;
+  }
+  
+  .app-wrapper.has-active-overlay .app-container--side {
+    width: calc(min(98vh, 98dvh) * (9 / 16));
+    opacity: 1;
+    pointer-events: auto;
+    margin-left: 32px;
+  }
+  
+  .app-wrapper.has-active-overlay .app-side-inner {
+    opacity: 1;
   }
 }
 
