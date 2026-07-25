@@ -1954,6 +1954,7 @@ button {
 }
 .full-page-view.is-active {
   transform: translateY(0);
+  pointer-events: auto;
 }
 .fp-header {
   display: flex;
