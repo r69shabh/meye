@@ -101,31 +101,40 @@ const NotificationManager = {
       try {
         const reg = await navigator.serviceWorker.register('/sw.js');
         
+        const showUpdateToast = () => {
+          const toast = document.getElementById('updateToast');
+          if (toast) {
+            toast.classList.add('is-active');
+            toast.onclick = () => {
+              // Use reg.waiting at click-time — the worker has moved to waiting state
+              const w = reg.waiting;
+              if (w) w.postMessage({ type: 'SKIP_WAITING' });
+            };
+          }
+          
+          if (Notification.permission === 'granted') {
+            new Notification('meyee Update Available', { 
+              body: 'Tap to refresh and get the latest version.',
+              tag: 'app-update'
+            });
+          }
+        };
+        
         reg.addEventListener('updatefound', () => {
           const newWorker = reg.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
               if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New update available
-                const toast = document.getElementById('updateToast');
-                if (toast) {
-                  toast.classList.add('is-active');
-                  toast.onclick = () => {
-                    newWorker.postMessage({ type: 'SKIP_WAITING' });
-                  };
-                }
-                
-                // Show a system notification
-                if (Notification.permission === 'granted') {
-                  new Notification('Update Available', { 
-                    body: 'Tap to refresh and apply the update.',
-                    tag: 'app-update'
-                  });
-                }
+                showUpdateToast();
               }
             });
           }
         });
+        
+        // If a waiting worker already exists (e.g. after hard reload), show toast immediately
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          showUpdateToast();
+        }
         
         // Reload when the new worker takes over
         let refreshing = false;
@@ -1193,12 +1202,14 @@ class VoiceRecorder {
     this.transcriptBox = document.getElementById('transcriptBox');
     this.reviewBody  = document.getElementById('reviewBody');
 
+    this.stream      = null;
     this.animFrame   = null;
     this.recognition = null;
     this.timerInterval = null;
     this.stalledTimeout = null;
 
     this.seconds     = 0;
+    this.committedText = ''; // text saved from completed recognition sessions
     this.finalText   = '';
     this.interimText = '';
     this.paused      = false;
@@ -1225,10 +1236,11 @@ class VoiceRecorder {
     const proceed = await OverlayManager.requestOpen(this);
     if (!proceed) return;
     this.overlay.classList.add('is-active');
-    this.finalText = '';
-    this.interimText = '';
     this.seconds = 0;
     this.paused = false;
+    this.finalText = '';
+    this.interimText = '';
+    this.committedText = '';
     this.waveHistory = [];
     this.targetAmplitude = 0.02;
     this.currentAmplitude = 0.02;
@@ -1346,24 +1358,24 @@ class VoiceRecorder {
       this.hintEl.style.display = 'none';
       this.targetAmplitude = 0.7;
 
-      // Always rebuild from ALL results (index 0 → end), NOT from event.resultIndex.
-      // Android's SpeechRecognition re-delivers the entire accumulated transcript on
-      // every event, so appending from resultIndex causes massive duplication.
-      let finalText = '';
+      // Rebuild the CURRENT SESSION's text from scratch (index 0 → end).
+      // Do NOT append to this.finalText — that would duplicate on Android's cumulative re-delivery.
+      // Prepend this.committedText (saved from prior sessions) to get the full transcript.
+      let sessionFinal = '';
       let interimText = '';
       for (let i = 0; i < event.results.length; i++) {
         const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalText += t + ' ';
+          sessionFinal += t + ' ';
           this.targetAmplitude = 0.3;
         } else {
           interimText += t;
         }
       }
 
-      this.finalText   = finalText;
+      this.finalText   = this.committedText + sessionFinal;
       this.interimText = interimText;
-      this.finalEl.textContent   = finalText;
+      this.finalEl.textContent   = this.finalText;
       this.interimEl.textContent = interimText;
       this.transcriptBox.scrollTop = this.transcriptBox.scrollHeight;
     };
@@ -1377,9 +1389,11 @@ class VoiceRecorder {
       console.warn('SpeechRecognition error', e.error);
     };
 
-    // Auto-restart (Chrome stops recognition periodically)
+    // Auto-restart (Chrome/Android stops recognition periodically)
     this.recognition.onend = () => {
       if (!this.paused && this.overlay.classList.contains('is-active')) {
+        // Commit current session's final text so it persists across the restart
+        this.committedText = this.finalText;
         try { this.recognition.start(); } catch(_) {}
       }
     };
