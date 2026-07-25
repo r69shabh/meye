@@ -38,6 +38,17 @@ const CustomDialog = {
 
 const OverlayManager = {
   activeObj: null,
+  isPopping: false,
+
+  init() {
+    window.addEventListener('popstate', (e) => {
+      if (this.activeObj) {
+        this.isPopping = true;
+        this.closeCurrent();
+        this.isPopping = false;
+      }
+    });
+  },
   
   async requestOpen(newObj) {
     if (this.activeObj === newObj) return true;
@@ -59,6 +70,11 @@ const OverlayManager = {
     
     this.closeCurrent();
     this.activeObj = newObj;
+    
+    if (!this.isPopping) {
+      history.pushState({ overlayOpen: true }, '');
+    }
+    
     return true;
   },
   
@@ -76,14 +92,24 @@ const OverlayManager = {
     }
     
     this.activeObj = null;
+    if (!this.isPopping) {
+      history.back();
+    }
   },
   
   notifyClosed(obj) {
     if (this.activeObj === obj) {
       this.activeObj = null;
+      if (!this.isPopping) {
+        history.back();
+      }
     }
   }
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+  OverlayManager.init();
+});
 
 // --- Notification Manager ---
 const NotificationManager = {
