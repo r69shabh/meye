@@ -1207,6 +1207,9 @@ class VoiceRecorder {
 
   _startAudio() {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
     this.analyser = this.ctx.createAnalyser();
     this.analyser.fftSize = 256;
     this.analyser.smoothingTimeConstant = 0.75;
@@ -1228,21 +1231,25 @@ class VoiceRecorder {
       // Compute RMS amplitude from low-mid frequencies (exclude ultra-highs)
       let sum = 0;
       const slice = Math.floor(data.length * 0.6);
-      for (let i = 0; i < slice; i++) sum += data[i];
-      const rms = (sum / slice) / 255;
-      const amp = this.paused ? 0.04 : Math.max(0.04, rms);
-
-      if (!this.paused) {
-        this.waveHistory.push(amp);
-        if (this.waveHistory.length > this.MAX_BARS) this.waveHistory.shift();
+      for(let i=0; i<slice; i++){
+        sum += (data[i] / 255.0) * (data[i] / 255.0);
+      }
+      let rms = Math.sqrt(sum / slice);
+      if (rms < 0.05) rms = 0; 
+      
+      this.waveHistory.push(rms);
+      if (this.waveHistory.length > this.MAX_BARS) {
+        this.waveHistory.shift();
       }
 
+      // Draw bars
       canvasCtx.clearRect(0, 0, W, H);
-
-      const barW  = 3;
-      const gap   = (W - barW * this.MAX_BARS) / (this.MAX_BARS - 1);
-      const step  = barW + gap;
+      const step = W / this.MAX_BARS;
+      const barW = Math.max(2, step - 4);
       const cx    = H / 2;
+
+      const isLight = document.body.classList.contains('light-theme');
+      canvasCtx.fillStyle = isLight ? `rgba(0,0,0,1)` : `rgba(255,255,255,1)`;
 
       for (let i = 0; i < this.MAX_BARS; i++) {
         const val  = this.waveHistory[i] ?? 0.04;
@@ -1250,12 +1257,16 @@ class VoiceRecorder {
         const x    = i * step;
         const alpha = 0.3 + (i / this.MAX_BARS) * 0.7; // fade in from left
 
+        canvasCtx.globalAlpha = alpha;
         canvasCtx.beginPath();
-        canvasCtx.roundRect(x, cx - barH / 2, barW, barH, 2);
-        const isLight = document.body.classList.contains('light-theme');
-        canvasCtx.fillStyle = isLight ? `rgba(0,0,0,${alpha})` : `rgba(255,255,255,${alpha})`;
+        if (canvasCtx.roundRect) {
+          canvasCtx.roundRect(x, cx - barH / 2, barW, barH, 2);
+        } else {
+          canvasCtx.rect(x, cx - barH / 2, barW, barH);
+        }
         canvasCtx.fill();
       }
+      canvasCtx.globalAlpha = 1.0;
     };
     draw();
   }
