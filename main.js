@@ -37,94 +37,78 @@ const CustomDialog = {
 // --- Overlay Manager ---
 
 const OverlayManager = {
-  activeObj: null,
-  parentObj: null,
+  stack: [],
   isPopping: false,
 
   init() {
     window.addEventListener('popstate', (e) => {
-      if (this.activeObj) {
+      if (this.stack.length > 0) {
         this.isPopping = true;
-        this.closeCurrent();
+        this.pop();
         this.isPopping = false;
       }
     });
   },
   
   async requestOpen(newObj) {
-    if (this.activeObj === newObj) return true;
+    if (this.stack.includes(newObj)) return true;
     
-    // VoiceRecorder warning
-    if (this.activeObj && typeof this.activeObj.recognition !== 'undefined') {
-      if (this.activeObj.timerInterval || (this.activeObj.reviewOverlay && this.activeObj.reviewOverlay.classList.contains('is-active'))) {
-        const proceed = await CustomDialog.show("Discard Recording?", "Current recording will be lost. Switch anyway?");
-        if (!proceed) return false;
-      }
-    }
-    // Composer warning
-    if (this.activeObj && this.activeObj.input && this.activeObj.typeRow) {
-      if (this.activeObj.input.value.trim().length > 0) {
-        const proceed = await CustomDialog.show("Discard Note?", "Current note will be lost. Switch anyway?");
+    // Check unsaved work on the current top overlay
+    const current = this.stack[this.stack.length - 1];
+    if (current && typeof current.hasUnsavedWork === 'function') {
+      if (current.hasUnsavedWork()) {
+        const proceed = await CustomDialog.show("Discard Changes?", "Current changes will be lost. Switch anyway?");
         if (!proceed) return false;
       }
     }
     
-    this.closeCurrent();
-    this.activeObj = newObj;
+    this.stack.push(newObj);
     
     if (!this.isPopping) {
-      history.pushState({ overlayOpen: true }, '');
+      history.pushState({ overlayOpen: true, index: this.stack.length }, '');
     }
     
+    document.getElementById('appWrapper').classList.add('has-active-overlay');
     return true;
   },
   
-  closeCurrent() {
-    if (!this.activeObj) return;
-    const closingObj = this.activeObj;
+  pop() {
+    if (this.stack.length === 0) return;
+    const closingObj = this.stack.pop();
     
-    if (typeof this.activeObj.cancel === 'function') {
-      this.activeObj.cancel();
-    } else if (typeof this.activeObj.close === 'function') {
-      this.activeObj.close();
-    } else if (this.activeObj.page) {
-      this.activeObj.page.classList.remove('is-active');
-    } else if (this.activeObj.overlay) {
-      this.activeObj.overlay.classList.remove('is-active');
+    if (typeof closingObj.cancel === 'function') {
+      closingObj.cancel();
+    } else if (typeof closingObj.close === 'function') {
+      closingObj.close();
+    } else if (closingObj.page) {
+      closingObj.page.classList.remove('is-active');
+    } else if (closingObj.overlay) {
+      closingObj.overlay.classList.remove('is-active');
     }
     
-    // A nested child can restore its parent while it is closing. Do not erase
-    // that restored state.
-    if (this.activeObj === closingObj) this.activeObj = null;
+    if (this.stack.length === 0) {
+      document.getElementById('appWrapper').classList.remove('has-active-overlay');
+    }
+    
     if (!this.isPopping) {
       history.back();
     }
   },
   
   notifyClosed(obj) {
-    if (this.activeObj === obj) {
-      this.activeObj = null;
-      if (!this.isPopping) {
+    const idx = this.stack.indexOf(obj);
+    if (idx > -1) {
+      const wasTop = (idx === this.stack.length - 1);
+      this.stack.splice(idx, 1);
+      
+      if (this.stack.length === 0) {
+        document.getElementById('appWrapper').classList.remove('has-active-overlay');
+      }
+      
+      if (wasTop && !this.isPopping) {
         history.back();
       }
     }
-  },
-
-  // Small, nested views such as the date/time picker must sit above the
-  // current full-screen view. Keeping the parent lets browser Back close the
-  // picker first instead of accidentally closing the editor beneath it.
-  openChild(obj) {
-    if (this.activeObj === obj) return;
-    this.parentObj = this.activeObj;
-    this.activeObj = obj;
-    if (!this.isPopping) history.pushState({ overlayOpen: true, childOverlay: true }, '');
-  },
-
-  notifyChildClosed(obj) {
-    if (this.activeObj !== obj) return;
-    this.activeObj = this.parentObj;
-    this.parentObj = null;
-    if (!this.isPopping) history.back();
   }
 };
 
@@ -659,19 +643,33 @@ function buildCardMeta(card) {
   `;
 }
 
+function escapeHTML(str) {
+  if (!str) return '';
+  return str.replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag])
+  );
+}
+
 function buildCardContent(card) {
+  const safeContent = escapeHTML(card.content);
   if (card.type === 'todo' || card.type === 'routine') {
     const checkedClass = card.checked ? 'checkbox--checked' : '';
     const checkSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
     return `
       <div class="card-checkbox">
         <div class="checkbox ${checkedClass}" data-checked="${card.checked}">${checkSvg}</div>
-        <span class="card-content" style="${card.checked ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${card.content}</span>
+        <span class="card-content" style="${card.checked ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${safeContent}</span>
       </div>
     `;
   }
 
-  return `<div class="card-content">${card.content}</div>`;
+  return `<div class="card-content">${safeContent}</div>`;
 }
 
 function buildCardTags(card) {
@@ -719,16 +717,16 @@ function init() {
   // Set header date
   document.getElementById('headerDate').textContent = formatDate(currentDate);
   document.getElementById('headerDateWrapper').addEventListener('click', () => {
-    DateTimePicker.open('date', formatDateKey(selectedDate), null, (newDateKey, newTime) => {
-      if (newDateKey) {
-        const parts = newDateKey.split('-');
+    ScheduleSheet.openForDateJump(formatDateKey(selectedDate), (res) => {
+      if (res.date) {
+        const parts = res.date.split('-');
         selectedDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
         document.getElementById('headerDate').textContent = formatDate(selectedDate);
         renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
         renderCardFeed(allCards, selectedDate, currentDate);
         bindDateStripEvents();
       }
-    }, true); // quickSelect = true
+    });
   });
 
   // Render date strip
@@ -744,7 +742,7 @@ function init() {
   bindInputBarEvents();
 
   // Initialize new components
-  DateTimePicker.init();
+  ScheduleSheet.init();
   NotificationEngine.init();
   StatsManager.init();
   HeatmapView.init();
@@ -1114,75 +1112,65 @@ const ExpandedCardView = {
 
   _bindEditorEvents() {
     const c = this.currentCard;
-    if (c.type === 'todo') {
-      const dateLabel = document.getElementById('displayTodoDate');
-      const timeLabel = document.getElementById('displayTodoTime');
-
-      const onPickerSave = (dateVal, timeVal) => {
-        c.date = dateVal;
-        c.reminderTime = timeVal;
-        
-        if (dateVal && dateVal !== 'daily') {
-          const dt = new Date(dateVal.split('-')[0], dateVal.split('-')[1]-1, dateVal.split('-')[2]);
-          dateLabel.textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-        }
-
-        if (timeVal) {
-          const [hh, mm] = timeVal.split(':').map(Number);
-          timeLabel.textContent = `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
-          timeLabel.classList.remove('exp-todo-field-empty');
-        }
-      };
-
-      document.getElementById('todoDateBtn')?.addEventListener('click', () => {
-        DateTimePicker.open('date', c.date, c.reminderTime, onPickerSave);
-      });
-      document.getElementById('todoTimeBtn')?.addEventListener('click', () => {
-        DateTimePicker.open('time', c.date, c.reminderTime, onPickerSave);
-      });
-    }
-    else if (c.type === 'calendar') {
-      let [startRaw, endRaw] = (c.eventTime || '').split(' – ');
-      
-      const onPickerSaveStart = (dateVal, timeVal) => {
-        if (dateVal) c.date = dateVal;
-        if (timeVal) {
-          startRaw = timeVal;
-          c.eventTime = `${startRaw || ''} – ${endRaw || ''}`;
-          document.getElementById('displayCalStartTime').textContent = formatTime(timeVal);
-          document.getElementById('displayCalStartTime').style.color = 'var(--text-primary)';
-        }
-        if (dateVal) {
-          const dt = new Date(dateVal.split('-')[0], dateVal.split('-')[1]-1, dateVal.split('-')[2]);
-          document.getElementById('displayCalDate').textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+    if (c.type === 'todo' || c.type === 'calendar') {
+      const onScheduleSave = (res) => {
+        c.date = res.date;
+        if (c.type === 'todo') {
+          c.reminderTime = res.start;
+          if (res.date && res.date !== 'daily') {
+             const dt = new Date(res.date.split('-')[0], res.date.split('-')[1]-1, res.date.split('-')[2]);
+             document.getElementById('displayTodoDate').textContent = dt.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' });
+             document.getElementById('displayTodoDate').classList.remove('exp-todo-field-empty');
+          } else {
+             document.getElementById('displayTodoDate').textContent = 'Daily';
+             document.getElementById('displayTodoDate').classList.remove('exp-todo-field-empty');
+          }
+          if (res.start) {
+             const [hh, mm] = res.start.split(':').map(Number);
+             document.getElementById('displayTodoTime').textContent = `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
+             document.getElementById('displayTodoTime').classList.remove('exp-todo-field-empty');
+          } else {
+             document.getElementById('displayTodoTime').textContent = 'No reminder';
+             document.getElementById('displayTodoTime').classList.add('exp-todo-field-empty');
+          }
+        } else if (c.type === 'calendar') {
+          c.eventTime = `${res.start || ''} – ${res.end || ''}`;
+          if (res.date) {
+             const dt = new Date(res.date.split('-')[0], res.date.split('-')[1]-1, res.date.split('-')[2]);
+             document.getElementById('displayCalDate').textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+          }
+          if (res.start) {
+             const [hh, mm] = res.start.split(':').map(Number);
+             document.getElementById('displayCalStartTime').textContent = `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
+             document.getElementById('displayCalStartTime').style.color = 'var(--text-primary)';
+          }
+          if (res.end) {
+             const [hh, mm] = res.end.split(':').map(Number);
+             document.getElementById('displayCalEndTime').textContent = `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
+             document.getElementById('displayCalEndTime').style.color = 'var(--text-primary)';
+          }
         }
       };
 
-      const onPickerSaveEnd = (dateVal, timeVal) => {
-        if (dateVal) c.date = dateVal;
-        if (timeVal) {
-          endRaw = timeVal;
-          c.eventTime = `${startRaw || ''} – ${endRaw || ''}`;
-          document.getElementById('displayCalEndTime').textContent = formatTime(timeVal);
-          document.getElementById('displayCalEndTime').style.color = 'var(--text-primary)';
-        }
-        if (dateVal) {
-          const dt = new Date(dateVal.split('-')[0], dateVal.split('-')[1]-1, dateVal.split('-')[2]);
-          document.getElementById('displayCalDate').textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-        }
-      };
-
-      document.getElementById('calDateBtn')?.addEventListener('click', () => {
-        DateTimePicker.open('date', c.date, startRaw, onPickerSaveStart);
-      });
-      document.getElementById('calStartTimeBtn')?.addEventListener('click', () => {
-        DateTimePicker.open('time', c.date, startRaw, onPickerSaveStart);
-      });
-      document.getElementById('calEndTimeBtn')?.addEventListener('click', () => {
-        DateTimePicker.open('time', c.date, endRaw, onPickerSaveEnd);
-      });
-    }
-    else if (c.type === 'routine') {
+      if (c.type === 'todo') {
+        document.getElementById('todoDateBtn')?.addEventListener('click', () => {
+          ScheduleSheet.openForCard(c, onScheduleSave);
+        });
+        document.getElementById('todoTimeBtn')?.addEventListener('click', () => {
+          ScheduleSheet.openForCard(c, onScheduleSave);
+        });
+      } else if (c.type === 'calendar') {
+        document.getElementById('calDateBtn')?.addEventListener('click', () => {
+          ScheduleSheet.openForCard(c, onScheduleSave);
+        });
+        document.getElementById('calStartTimeBtn')?.addEventListener('click', () => {
+          ScheduleSheet.openForCard(c, onScheduleSave);
+        });
+        document.getElementById('calEndTimeBtn')?.addEventListener('click', () => {
+          ScheduleSheet.openForCard(c, onScheduleSave);
+        });
+      }
+    } else if (c.type === 'routine') {
       const list = document.getElementById('routineItems');
       const addBtn = document.getElementById('btnAddRoutineItem');
 
@@ -2100,49 +2088,52 @@ const Composer = {
 // ============================================
 // Custom Date & Time Picker Modal
 // ============================================
-const DateTimePicker = {
-  overlay: null, modal: null, dateTab: null, timeTab: null,
-  dateView: null, timeView: null,
-  daysGrid: null, monthLabel: null,
+const ScheduleSheet = {
+  overlay: null, sheet: null, dateTab: null, timeTab: null,
+  dateView: null, timeView: null, daysGrid: null, monthLabel: null,
+  timeContext: null,
   wheelHour: null, wheelMinute: null, wheelAmPm: null,
   currentDate: new Date(),
-  selectedDateStr: '', selectedTimeStr: '',
-  onSave: null, currentMode: 'date',
+  currentCard: null,
   
+  // Working state
+  workingDateStr: '', // 'YYYY-MM-DD' or 'daily'
+  workingStartStr: '', // 'HH:MM'
+  workingEndStr: '',   // 'HH:MM'
+  
+  editingTimeContext: 'start', // 'start' or 'end'
+  
+  onSaveCallback: null,
+
   init() {
-    this.overlay = document.getElementById('dtOverlay');
-    this.modal = document.getElementById('dtModal');
-    this.dateTab = document.getElementById('dtTabDate');
-    this.timeTab = document.getElementById('dtTabTime');
-    this.dateView = document.getElementById('dtViewDate');
-    this.timeView = document.getElementById('dtViewTime');
-    this.daysGrid = document.getElementById('dtDaysGrid');
-    this.monthLabel = document.getElementById('dtMonthLabel');
-    this.timeDisplay = document.getElementById('dtTimeDisplay');
-    this.wheelHour = document.getElementById('dtWheelHour');
-    this.wheelMinute = document.getElementById('dtWheelMinute');
-    this.wheelAmPm = document.getElementById('dtWheelAmPm');
+    this.overlay = document.getElementById('scheduleOverlay');
+    this.sheet = document.getElementById('scheduleSheet');
+    this.dateTab = document.querySelector('.schedule-tab[data-tab="date"]');
+    this.timeTab = document.querySelector('.schedule-tab[data-tab="time"]');
+    this.dateView = document.getElementById('scheduleViewDate');
+    this.timeView = document.getElementById('scheduleViewTime');
+    this.daysGrid = document.getElementById('scheduleDaysGrid');
+    this.monthLabel = document.getElementById('scheduleMonthLabel');
+    this.timeContext = document.getElementById('scheduleTimeContext');
+    this.wheelHour = document.getElementById('scheduleWheelHour');
+    this.wheelMinute = document.getElementById('scheduleWheelMinute');
+    this.wheelAmPm = document.getElementById('scheduleWheelAmPm');
 
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) this.close();
     });
 
-    document.getElementById('dtCancel').addEventListener('click', () => this.close());
-    document.getElementById('dtDone').addEventListener('click', () => {
-      if (this.onSave) {
-        this.onSave(this.selectedDateStr, this.selectedTimeStr);
-      }
-      this.close();
-    });
+    document.getElementById('scheduleCancel').addEventListener('click', () => this.close());
+    document.getElementById('scheduleDone').addEventListener('click', () => this.saveAndClose());
 
     this.dateTab.addEventListener('click', () => this.switchMode('date'));
     this.timeTab.addEventListener('click', () => this.switchMode('time'));
 
-    document.getElementById('dtPrevMonth').addEventListener('click', () => {
+    document.getElementById('schedulePrevMonth').addEventListener('click', () => {
       this.currentDate.setMonth(this.currentDate.getMonth() - 1);
       this.renderCalendar();
     });
-    document.getElementById('dtNextMonth').addEventListener('click', () => {
+    document.getElementById('scheduleNextMonth').addEventListener('click', () => {
       this.currentDate.setMonth(this.currentDate.getMonth() + 1);
       this.renderCalendar();
     });
@@ -2150,25 +2141,24 @@ const DateTimePicker = {
     this.daysGrid.addEventListener('click', (e) => {
       const dayEl = e.target.closest('.dt-day');
       if (!dayEl || dayEl.classList.contains('empty')) return;
-      
       const d = parseInt(dayEl.textContent, 10);
       const m = this.currentDate.getMonth() + 1;
       const y = this.currentDate.getFullYear();
-      this.selectedDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      this.workingDateStr = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
       this.renderCalendar();
-      this.validateDoneButton();
-
-      if (this.quickSelect) {
-        if (this.onSave) this.onSave(this.selectedDateStr, this.selectedTimeStr);
-        this.close();
-      }
+      this.updateTimeContextUI();
     });
 
-    // Populate wheels
+    // Build wheels
     this.wheelHour.innerHTML = Array.from({length: 12}, (_,i) => `<div class="dt-wheel-item" data-val="${i+1}">${i+1}</div>`).join('');
-    this.wheelMinute.innerHTML = Array.from({length: 60}, (_,i) => `<div class="dt-wheel-item" data-val="${i}">${String(i).padStart(2,'0')}</div>`).join('');
+    this.wheelMinute.innerHTML = Array.from({length: 60}, (_,i) => {
+      if (i % 5 !== 0) return ''; // Option: snap to 5 mins? Let's keep all 60 for precision.
+      return `<div class="dt-wheel-item" data-val="${i}">${String(i).padStart(2,'0')}</div>`;
+    }).join('');
 
-    const updateTime = () => {
+    const updateTimeFromWheels = () => {
+      if (this.workingDateStr === 'daily' || !this.workingDateStr) return; // Can't pick time for daily/no date
+
       const hEl = this._getCenterItem(this.wheelHour);
       const mEl = this._getCenterItem(this.wheelMinute);
       const ampmEl = this._getCenterItem(this.wheelAmPm);
@@ -2184,24 +2174,29 @@ const DateTimePicker = {
       let hour24 = parseInt(h);
       if (ampm === 'PM' && hour24 < 12) hour24 += 12;
       if (ampm === 'AM' && hour24 === 12) hour24 = 0;
-      this.selectedTimeStr = `${String(hour24).padStart(2,'0')}:${m}`;
+      
+      const newTime = `${String(hour24).padStart(2,'0')}:${m}`;
+      if (this.editingTimeContext === 'start') {
+        this.workingStartStr = newTime;
+      } else {
+        this.workingEndStr = newTime;
+      }
+      this.updateTimeContextUI();
     };
 
-    this.wheelHour.addEventListener('scroll', updateTime);
-    this.wheelMinute.addEventListener('scroll', updateTime);
-    this.wheelAmPm.addEventListener('scroll', updateTime);
     [this.wheelHour, this.wheelMinute, this.wheelAmPm].forEach(wheel => {
+      wheel.addEventListener('scroll', updateTimeFromWheels);
       wheel.addEventListener('click', (event) => {
         const item = event.target.closest('.dt-wheel-item');
         if (!item) return;
         wheel.scrollTo({ top: item.offsetTop - wheel.clientHeight / 2 + item.offsetHeight / 2, behavior: 'smooth' });
-        setTimeout(updateTime, 180);
+        setTimeout(updateTimeFromWheels, 180);
       });
     });
   },
 
   _getCenterItem(wheel) {
-    const items = Array.from(wheel.children);
+    const items = Array.from(wheel.children).filter(el => el.dataset.val !== undefined);
     const center = wheel.scrollTop + (wheel.clientHeight / 2);
     let minDiff = Infinity;
     let closest = null;
@@ -2213,7 +2208,6 @@ const DateTimePicker = {
   },
 
   switchMode(mode) {
-    this.currentMode = mode;
     if (mode === 'date') {
       this.dateTab.classList.add('active'); this.timeTab.classList.remove('active');
       this.dateView.style.display = 'block'; setTimeout(()=>this.dateView.classList.add('active'),10);
@@ -2223,78 +2217,180 @@ const DateTimePicker = {
       this.timeTab.classList.add('active'); this.dateTab.classList.remove('active');
       this.timeView.style.display = 'flex'; setTimeout(()=>this.timeView.classList.add('active'),10);
       this.dateView.classList.remove('active'); setTimeout(()=>this.dateView.style.display = 'none',200);
+      this.updateTimeContextUI();
+      // Scroll to current selected time
+      const timeStr = this.editingTimeContext === 'start' ? this.workingStartStr : this.workingEndStr;
+      this.scrollToTime(timeStr);
     }
-    this.validateDoneButton();
   },
 
-  validateDoneButton() {
-    const doneBtn = document.getElementById('dtDone');
-    if (this.currentMode === 'time' && (!this.selectedDateStr || this.selectedDateStr === 'daily')) {
-      doneBtn.style.opacity = '0.4';
-      doneBtn.style.pointerEvents = 'none';
-      doneBtn.textContent = 'Pick Date';
+  scrollToTime(timeStr) {
+    if (!timeStr) return;
+    let [h, m] = timeStr.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    setTimeout(() => {
+      const itemH = this.wheelHour.querySelector(`[data-val="${h}"]`);
+      const itemM = this.wheelMinute.querySelector(`[data-val="${m}"]`);
+      const itemA = this.wheelAmPm.querySelector(`[data-val="${ampm}"]`);
+      
+      if (itemH) this.wheelHour.scrollTo({ top: itemH.offsetTop - this.wheelHour.clientHeight/2 + itemH.offsetHeight/2, behavior: 'instant' });
+      if (itemM) this.wheelMinute.scrollTo({ top: itemM.offsetTop - this.wheelMinute.clientHeight/2 + itemM.offsetHeight/2, behavior: 'instant' });
+      if (itemA) this.wheelAmPm.scrollTo({ top: itemA.offsetTop - this.wheelAmPm.clientHeight/2 + itemA.offsetHeight/2, behavior: 'instant' });
+    }, 10);
+  },
+
+  formatTimeDisp(timeStr) {
+    if (!timeStr) return '--:--';
+    let [h, m] = timeStr.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${String(m).padStart(2,'0')} ${ampm}`;
+  },
+
+  updateTimeContextUI() {
+    if (!this.currentCard) {
+       this.timeContext.innerHTML = `<div class="schedule-time-row"><span>Select a card first</span></div>`;
+       return;
+    }
+    
+    if (!this.workingDateStr || this.workingDateStr === 'daily') {
+       this.timeContext.innerHTML = `<div class="schedule-time-row"><span>No date selected</span></div>`;
+       this.wheelHour.style.opacity = '0.3';
+       this.wheelHour.style.pointerEvents = 'none';
+       this.wheelMinute.style.opacity = '0.3';
+       this.wheelMinute.style.pointerEvents = 'none';
+       this.wheelAmPm.style.opacity = '0.3';
+       this.wheelAmPm.style.pointerEvents = 'none';
+       return;
+    }
+    
+    this.wheelHour.style.opacity = '1';
+    this.wheelHour.style.pointerEvents = 'auto';
+    this.wheelMinute.style.opacity = '1';
+    this.wheelMinute.style.pointerEvents = 'auto';
+    this.wheelAmPm.style.opacity = '1';
+    this.wheelAmPm.style.pointerEvents = 'auto';
+
+    if (this.currentCard.type === 'calendar') {
+      this.timeContext.innerHTML = `
+        <div class="schedule-time-row">
+          <span>Start Time</span>
+          <button class="schedule-time-btn ${this.editingTimeContext === 'start' ? 'active' : ''}" id="btnEditStart">${this.formatTimeDisp(this.workingStartStr)}</button>
+        </div>
+        <div class="schedule-time-row">
+          <span>End Time</span>
+          <button class="schedule-time-btn ${this.editingTimeContext === 'end' ? 'active' : ''}" id="btnEditEnd">${this.formatTimeDisp(this.workingEndStr)}</button>
+        </div>
+      `;
+      document.getElementById('btnEditStart').addEventListener('click', () => {
+        this.editingTimeContext = 'start';
+        this.updateTimeContextUI();
+        this.scrollToTime(this.workingStartStr);
+      });
+      document.getElementById('btnEditEnd').addEventListener('click', () => {
+        this.editingTimeContext = 'end';
+        if (!this.workingEndStr && this.workingStartStr) {
+          // Default end time to start + 1 hour
+          let [h, m] = this.workingStartStr.split(':').map(Number);
+          h = (h + 1) % 24;
+          this.workingEndStr = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+        }
+        this.updateTimeContextUI();
+        this.scrollToTime(this.workingEndStr);
+      });
     } else {
-      doneBtn.style.opacity = '1';
-      doneBtn.style.pointerEvents = 'auto';
-      doneBtn.textContent = 'Done';
+      // Todo or Note
+      this.timeContext.innerHTML = `
+        <div class="schedule-time-row">
+          <span>Reminder Time</span>
+          <div>
+             <button class="schedule-time-btn active" id="btnEditStart" style="margin-right:8px;">${this.workingStartStr ? this.formatTimeDisp(this.workingStartStr) : 'Set Time'}</button>
+             <button class="schedule-cancel" id="btnClearTime" style="min-width:auto; min-height:auto; padding:8px 12px; font-size:14px; background:rgba(255,255,255,0.1); border-radius:12px; color:var(--text-secondary);">Clear</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('btnEditStart').addEventListener('click', () => {
+        if (!this.workingStartStr) {
+           this.workingStartStr = '12:00';
+           this.updateTimeContextUI();
+           this.scrollToTime(this.workingStartStr);
+        }
+      });
+      document.getElementById('btnClearTime').addEventListener('click', () => {
+        this.workingStartStr = '';
+        this.updateTimeContextUI();
+      });
     }
   },
 
-  open(mode, initialDate, initialTime, callback, quickSelect = false) {
-    this.onSave = callback;
-    this.quickSelect = quickSelect;
+  openForCard(card, onSaveCallback) {
+    this.currentCard = card;
+    this.onSaveCallback = onSaveCallback;
+    this.workingDateStr = card.date || '';
     
-    const headerEl = document.querySelector('.dt-header');
-    if (headerEl) {
-      headerEl.style.display = quickSelect ? 'none' : 'flex';
-    }
-
-    this.selectedDateStr = initialDate;
-    this.selectedTimeStr = initialTime || '12:00';
-    this.switchMode(mode);
-    
-    const parseDateSafe = (val) => {
-      if (!val || val === 'daily') return new Date();
-      const parts = val.split('-');
-      if (parts.length === 3) return new Date(parts[0], parts[1]-1, parts[2]);
-      return new Date();
-    };
-
-    if (mode === 'date') {
-      if (initialDate && initialDate !== 'daily') {
-        this.currentDate = parseDateSafe(initialDate);
-        this.selectedDateStr = initialDate;
+    if (card.type === 'calendar') {
+      if (card.eventTime) {
+        const parts = card.eventTime.split('–').map(s => s.trim());
+        this.workingStartStr = parts[0] || '09:00';
+        this.workingEndStr = parts[1] || '10:00';
       } else {
-        this.currentDate = new Date();
-        this.selectedDateStr = formatDateKey(this.currentDate);
+        this.workingStartStr = '09:00';
+        this.workingEndStr = '10:00';
       }
-      this.renderCalendar();
     } else {
-      if (this.selectedTimeStr) {
-        let [h, m] = this.selectedTimeStr.split(':').map(Number);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
-        if (this.timeDisplay) this.timeDisplay.textContent = `${h}:${String(m).padStart(2,'0')} ${ampm}`;
-        
-        setTimeout(() => {
-          const itemH = this.wheelHour.querySelector(`[data-val="${h}"]`);
-          const itemM = this.wheelMinute.querySelector(`[data-val="${m}"]`);
-          const itemA = this.wheelAmPm.querySelector(`[data-val="${ampm}"]`);
-          
-          if (itemH) this.wheelHour.scrollTo({ top: itemH.offsetTop - this.wheelHour.clientHeight/2 + itemH.offsetHeight/2, behavior: 'instant' });
-          if (itemM) this.wheelMinute.scrollTo({ top: itemM.offsetTop - this.wheelMinute.clientHeight/2 + itemM.offsetHeight/2, behavior: 'instant' });
-          if (itemA) this.wheelAmPm.scrollTo({ top: itemA.offsetTop - this.wheelAmPm.clientHeight/2 + itemA.offsetHeight/2, behavior: 'instant' });
-        }, 10);
-      }
+      this.workingStartStr = card.reminderTime || '';
+      this.workingEndStr = '';
     }
     
-    OverlayManager.openChild(this);
+    this.editingTimeContext = 'start';
+    
+    if (this.workingDateStr && this.workingDateStr !== 'daily') {
+      const parts = this.workingDateStr.split('-');
+      if (parts.length === 3) this.currentDate = new Date(parts[0], parts[1]-1, parts[2]);
+    } else {
+      this.currentDate = new Date();
+    }
+    
+    this.switchMode('date');
+    OverlayManager.requestOpen(this);
     this.overlay.classList.add('is-active');
   },
   
+  openForDateJump(initialDateStr, onSaveCallback) {
+    this.currentCard = null; // null context means Date tab only
+    this.onSaveCallback = onSaveCallback;
+    this.workingDateStr = initialDateStr;
+    
+    if (this.workingDateStr && this.workingDateStr !== 'daily') {
+      const parts = this.workingDateStr.split('-');
+      if (parts.length === 3) this.currentDate = new Date(parts[0], parts[1]-1, parts[2]);
+    } else {
+      this.currentDate = new Date();
+    }
+    
+    this.timeTab.style.display = 'none'; // hide time tab for pure date jump
+    this.switchMode('date');
+    OverlayManager.requestOpen(this);
+    this.overlay.classList.add('is-active');
+  },
+
+  saveAndClose() {
+    if (this.onSaveCallback) {
+       this.onSaveCallback({
+         date: this.workingDateStr,
+         start: this.workingStartStr,
+         end: this.workingEndStr
+       });
+    }
+    this.close();
+  },
+
   close() {
     this.overlay.classList.remove('is-active');
-    OverlayManager.notifyChildClosed(this);
+    // reset tab visibility in case it was hidden by openForDateJump
+    this.timeTab.style.display = 'block';
+    OverlayManager.notifyClosed(this);
   },
 
   renderCalendar() {
@@ -2315,12 +2411,13 @@ const DateTimePicker = {
       const cellDateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
       let cls = 'dt-day';
       if (cellDateStr === todayStr) cls += ' today';
-      if (cellDateStr === this.selectedDateStr) cls += ' selected';
-      html += `<button type="button" class="${cls}" aria-label="${MONTHS[m]} ${i}, ${y}" aria-pressed="${cellDateStr === this.selectedDateStr}">${i}</button>`;
+      if (cellDateStr === this.workingDateStr) cls += ' selected';
+      html += `<button type="button" class="${cls}" aria-label="${MONTHS[m]} ${i}, ${y}" aria-pressed="${cellDateStr === this.workingDateStr}">${i}</button>`;
     }
     this.daysGrid.innerHTML = html;
   }
 };
+
 
 // ============================================
 // Notification Engine

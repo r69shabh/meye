@@ -1527,11 +1527,11 @@ textarea:focus-visible {
 }
 
 /* ── Custom Date/Time Picker ──────────────────── */
-.dt-overlay {
+.schedule-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(0,0,0,0.4);
-  z-index: 200;
+  z-index: 2000;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -1539,14 +1539,14 @@ textarea:focus-visible {
   pointer-events: none;
   transition: opacity 0.3s var(--ease-out);
 }
-.dt-overlay.is-active {
+.schedule-overlay.is-active {
   opacity: 1;
   pointer-events: auto;
 }
-.dt-modal {
-  background: rgba(15, 15, 18, 0.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+.schedule-sheet {
+  background: rgba(15, 15, 18, 0.95);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
@@ -1558,15 +1558,15 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 20px;
 }
-.dt-overlay.is-active .dt-modal {
+.schedule-overlay.is-active .schedule-sheet {
   transform: translateY(0);
 }
-.dt-header {
+.schedule-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-.dt-cancel {
+.schedule-cancel {
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -1576,7 +1576,7 @@ textarea:focus-visible {
   font-weight: 500;
   cursor: pointer;
 }
-.dt-done {
+.schedule-done {
   background: transparent;
   border: none;
   color: var(--text-primary);
@@ -1586,13 +1586,13 @@ textarea:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
-.dt-tabs {
+.schedule-tabs {
   display: flex;
   background: rgba(255,255,255,0.1);
   border-radius: 20px;
   padding: 2px;
 }
-.dt-tab {
+.schedule-tab {
   min-height: 44px;
   padding: 6px 16px;
   border-radius: 18px;
@@ -1601,26 +1601,59 @@ textarea:focus-visible {
   color: rgba(255,255,255,0.5);
   background: transparent;
 }
-.dt-tab.active {
+.schedule-tab.active {
   background: rgba(255,255,255,0.15);
   color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.2);
 }
-.dt-body {
+.schedule-body {
   position: relative;
   min-height: 350px;
 }
-.dt-view {
+.schedule-view {
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
   opacity: 0; pointer-events: none;
   transition: opacity 0.2s;
 }
-.dt-view-time {
+.schedule-view-time {
   flex-direction: column;
 }
-.dt-view.active {
+.schedule-view.active {
   opacity: 1; pointer-events: auto;
+}
+.schedule-time-context {
+  margin-bottom: 20px;
+  padding: 10px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.schedule-time-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.schedule-time-row span {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.schedule-time-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+.schedule-time-btn.active {
+  background: var(--text-primary);
+  color: var(--bg-primary);
 }
 .dt-month-ctrl {
   display: flex;

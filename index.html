@@ -177,38 +177,42 @@
       </div>
     </div>
     <!-- Custom Date/Time Picker Modal -->
-    <div class="dt-overlay" id="dtOverlay">
-      <div class="dt-modal" id="dtModal">
-        <div class="dt-header">
-          <button class="dt-cancel" id="dtCancel">Cancel</button>
-          <div class="dt-tabs">
-            <button class="dt-tab active" id="dtTabDate">Date</button>
-            <button class="dt-tab" id="dtTabTime">Time</button>
+    <div class="schedule-overlay" id="scheduleOverlay">
+      <div class="schedule-sheet" id="scheduleSheet">
+        <div class="schedule-header">
+          <button class="schedule-cancel" id="scheduleCancel">Cancel</button>
+          <div class="schedule-tabs" id="scheduleTabs">
+            <button class="schedule-tab active" data-tab="date">Date</button>
+            <button class="schedule-tab" data-tab="time">Time</button>
           </div>
-          <button class="dt-done" id="dtDone">Done</button>
+          <button class="schedule-done" id="scheduleDone">Save</button>
         </div>
         
-        <div class="dt-body">
-          <!-- Date View -->
-          <div class="dt-view dt-view-date active" id="dtViewDate">
+        <div class="schedule-body">
+          <!-- Date Tab -->
+          <div class="schedule-view schedule-view-date active" id="scheduleViewDate">
             <div class="dt-month-ctrl">
-              <button id="dtPrevMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
-              <span id="dtMonthLabel" class="dt-month-label">July 2026</span>
-              <button id="dtNextMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
+              <button id="schedulePrevMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg></button>
+              <span id="scheduleMonthLabel" class="dt-month-label">July 2026</span>
+              <button id="scheduleNextMonth"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg></button>
             </div>
             <div class="dt-weekdays">
               <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
             </div>
-            <div class="dt-days" id="dtDaysGrid"></div>
+            <div class="dt-days" id="scheduleDaysGrid"></div>
           </div>
           
-          <!-- Time View -->
-          <div class="dt-view dt-view-time" id="dtViewTime" style="display:none;">
+          <!-- Time Tab -->
+          <div class="schedule-view schedule-view-time" id="scheduleViewTime" style="display:none;">
+            <!-- Context controls (To-Do optional time vs Event start/end) -->
+            <div class="schedule-time-context" id="scheduleTimeContext">
+              <!-- Will be injected by JS depending on mode -->
+            </div>
             <div class="dt-wheels">
-              <div class="dt-wheel" id="dtWheelHour"></div>
+              <div class="dt-wheel" id="scheduleWheelHour"></div>
               <div class="dt-wheel-sep">:</div>
-              <div class="dt-wheel" id="dtWheelMinute"></div>
-              <div class="dt-wheel dt-wheel-ampm" id="dtWheelAmPm">
+              <div class="dt-wheel" id="scheduleWheelMinute"></div>
+              <div class="dt-wheel dt-wheel-ampm" id="scheduleWheelAmPm">
                 <div class="dt-wheel-item" data-val="AM">AM</div>
                 <div class="dt-wheel-item" data-val="PM">PM</div>
               </div>
