@@ -126,9 +126,6 @@ button {
   position: absolute;
   inset: 0;
 }
-.app-container--side > .app-side-inner > * {
-  pointer-events: auto;
-}
 
 /* On screens wider than the container, add subtle shadow */
 @media (min-width: 500px) {
