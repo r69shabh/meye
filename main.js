@@ -2,6 +2,55 @@
 // meye — Main Application Logic
 // ============================================
 
+// --- Overlay Manager ---
+
+const OverlayManager = {
+  activeObj: null,
+  
+  requestOpen(newObj) {
+    if (this.activeObj === newObj) return true;
+    
+    // VoiceRecorder warning
+    if (this.activeObj && typeof this.activeObj.recognition !== 'undefined') {
+      if (this.activeObj.timerInterval || (this.activeObj.reviewOverlay && this.activeObj.reviewOverlay.classList.contains('is-active'))) {
+        if (!confirm("Current recording will be lost. Switch anyway?")) return false;
+      }
+    }
+    // Composer warning
+    if (this.activeObj && this.activeObj.input && this.activeObj.typeRow) {
+      if (this.activeObj.input.value.trim().length > 0) {
+        if (!confirm("Current note will be lost. Switch anyway?")) return false;
+      }
+    }
+    
+    this.closeCurrent();
+    this.activeObj = newObj;
+    return true;
+  },
+  
+  closeCurrent() {
+    if (!this.activeObj) return;
+    
+    if (typeof this.activeObj.cancel === 'function') {
+      this.activeObj.cancel();
+    } else if (typeof this.activeObj.close === 'function') {
+      this.activeObj.close();
+    } else if (this.activeObj.page) {
+      this.activeObj.page.classList.remove('is-active');
+    } else if (this.activeObj.overlay) {
+      this.activeObj.overlay.classList.remove('is-active');
+    }
+    
+    this.activeObj = null;
+  },
+  
+  notifyClosed(obj) {
+    if (this.activeObj === obj) {
+      this.activeObj = null;
+    }
+  }
+};
+
 // --- Date Utilities ---
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -558,6 +607,7 @@ const ExpandedCardView = {
   },
 
   open(cardId) {
+    if (!OverlayManager.requestOpen(this)) return;
     this.currentCard = allCards.find(c => c.id === cardId);
     if (!this.currentCard) return;
 
@@ -603,6 +653,7 @@ const ExpandedCardView = {
   close() {
     this.saveChanges();
     this.overlay.classList.remove('is-active');
+    OverlayManager.notifyClosed(this);
   },
 
   renderEditor() {
@@ -901,6 +952,7 @@ class VoiceRecorder {
   }
 
   async open() {
+    if (!OverlayManager.requestOpen(this)) return;
     this.overlay.classList.add('is-active');
     this.finalText = '';
     this.interimText = '';
@@ -1083,6 +1135,7 @@ class VoiceRecorder {
     this._stopAll();
     this.overlay.classList.remove('is-active');
     this.reviewOverlay.classList.remove('is-active');
+    OverlayManager.notifyClosed(this);
   }
 
   _stopAll() {
@@ -1151,6 +1204,7 @@ class VoiceRecorder {
     allCards.push(newCard);
     syncAndSave();
     this.reviewOverlay.classList.remove('is-active');
+    OverlayManager.notifyClosed(this);
     renderCardFeed(allCards, selectedDate, today);
   }
 }
@@ -1311,10 +1365,10 @@ const SmartParser = {
       if (rel === 'today' || rel === 'tonight') {
         date = formatDateKey(today); dateLabel = 'Today';
       } else if (rel === 'tomorrow' || rel === 'tmrw' || rel === 'tmr') {
-        const d = new Date(today); d.setDate(d.getDate() + 1);
+        const d = new Date(today); d.setDate(today.getDate() + 1);
         date = formatDateKey(d); dateLabel = 'Tomorrow';
       } else if (rel === 'day after tomorrow') {
-        const d = new Date(today); d.setDate(d.getDate() + 2);
+        const d = new Date(today); d.setDate(today.getDate() + 2);
         date = formatDateKey(d); dateLabel = 'Day after tomorrow';
       }
     }
@@ -1512,6 +1566,7 @@ const Composer = {
   },
 
   open() {
+    if (!OverlayManager.requestOpen(this)) return;
     this.input.value = '';
     this.detected.innerHTML = '';
     this.input.style.height = 'auto';
@@ -1528,6 +1583,7 @@ const Composer = {
   close() {
     this.overlay.classList.remove('is-open');
     this.input.blur();
+    OverlayManager.notifyClosed(this);
   },
 
   _updatePreview() {
@@ -2410,8 +2466,15 @@ const SettingsView = {
     localStorage.setItem('meyePrefsV2', JSON.stringify(this.prefs));
   },
 
-  open() { this.page.classList.add('is-active'); },
-  close() { this.closeDropdown(); this.page.classList.remove('is-active'); }
+  open() { 
+    if (!OverlayManager.requestOpen(this)) return;
+    this.page.classList.add('is-active'); 
+  },
+  close() { 
+    this.closeDropdown(); 
+    this.page.classList.remove('is-active'); 
+    OverlayManager.notifyClosed(this);
+  }
 };
 
 // ============================================
@@ -2484,10 +2547,14 @@ const HeatmapView = {
     this.content = document.getElementById('heatmapContent');
 
     this.btnOpen.addEventListener('click', () => {
+      if (!OverlayManager.requestOpen(this)) return;
       this.render();
       this.page.classList.add('is-active');
     });
-    this.btnBack.addEventListener('click', () => this.page.classList.remove('is-active'));
+    this.btnBack.addEventListener('click', () => {
+      this.page.classList.remove('is-active');
+      OverlayManager.notifyClosed(this);
+    });
   },
 
   render() {
