@@ -2,24 +2,58 @@
 // meye — Main Application Logic
 // ============================================
 
+// --- Custom Dialog ---
+const CustomDialog = {
+  show(title, message, confirmBtnText = 'Discard', cancelBtnText = 'Cancel') {
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('customDialogOverlay');
+      const titleEl = document.getElementById('customDialogTitle');
+      const msgEl = document.getElementById('customDialogMessage');
+      const btnCancel = document.getElementById('customDialogCancel');
+      const btnConfirm = document.getElementById('customDialogConfirm');
+
+      titleEl.textContent = title;
+      msgEl.textContent = message;
+      btnConfirm.textContent = confirmBtnText;
+      btnCancel.textContent = cancelBtnText;
+
+      const cleanup = () => {
+        btnCancel.removeEventListener('click', onCancel);
+        btnConfirm.removeEventListener('click', onConfirm);
+        overlay.classList.remove('is-active');
+      };
+
+      const onCancel = () => { cleanup(); resolve(false); };
+      const onConfirm = () => { cleanup(); resolve(true); };
+
+      btnCancel.addEventListener('click', onCancel);
+      btnConfirm.addEventListener('click', onConfirm);
+
+      overlay.classList.add('is-active');
+    });
+  }
+};
+
 // --- Overlay Manager ---
 
 const OverlayManager = {
   activeObj: null,
   
-  requestOpen(newObj) {
+  async requestOpen(newObj) {
     if (this.activeObj === newObj) return true;
     
     // VoiceRecorder warning
     if (this.activeObj && typeof this.activeObj.recognition !== 'undefined') {
       if (this.activeObj.timerInterval || (this.activeObj.reviewOverlay && this.activeObj.reviewOverlay.classList.contains('is-active'))) {
-        if (!confirm("Current recording will be lost. Switch anyway?")) return false;
+        const proceed = await CustomDialog.show("Discard Recording?", "Current recording will be lost. Switch anyway?");
+        if (!proceed) return false;
       }
     }
     // Composer warning
     if (this.activeObj && this.activeObj.input && this.activeObj.typeRow) {
       if (this.activeObj.input.value.trim().length > 0) {
-        if (!confirm("Current note will be lost. Switch anyway?")) return false;
+        const proceed = await CustomDialog.show("Discard Note?", "Current note will be lost. Switch anyway?");
+        if (!proceed) return false;
       }
     }
     
@@ -48,6 +82,168 @@ const OverlayManager = {
     if (this.activeObj === obj) {
       this.activeObj = null;
     }
+  }
+};
+
+// --- Notification Manager ---
+const NotificationManager = {
+  activeBannerTimeout: null,
+  notifiedSet: new Set(),
+  
+  async init() {
+    if ('Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+    
+    if ('serviceWorker' in navigator) {
+      try {
+        await navigator.serviceWorker.register('/sw.js');
+      } catch(e) {
+        console.warn('SW registration failed:', e);
+      }
+    }
+    
+    setInterval(() => this.check(), 10000);
+    this.check();
+    
+    const closeBtn = document.getElementById('notifBannerClose');
+    if (closeBtn) closeBtn.addEventListener('click', () => this.hideBanner());
+  },
+  
+  check() {
+    // Only check if SettingsView is initialized and prefs are loaded
+    if (!SettingsView || !SettingsView.prefs) return;
+    
+    const now = new Date();
+    const todayStr = formatDateKey(now);
+    const currentTimeMs = now.getTime();
+    
+    const offsetMins = SettingsView.prefs.defaultReminder === 'none' ? 0 : parseInt(SettingsView.prefs.defaultReminder) || 0;
+    
+    allCards.forEach(c => {
+      if (c.checked) return;
+      if (c.date !== todayStr && c.date !== 'daily') return;
+      
+      let targetH = null, targetM = null;
+      if (c.reminderTime) {
+        const parts = c.reminderTime.split(':');
+        targetH = parseInt(parts[0]);
+        targetM = parseInt(parts[1]);
+      } else if (c.type === 'calendar' && c.eventTime) {
+        const startRaw = c.eventTime.split('–')[0].trim();
+        const parts = startRaw.split(':');
+        targetH = parseInt(parts[0]);
+        targetM = parseInt(parts[1]);
+      }
+      
+      if (targetH !== null && targetM !== null) {
+        const targetDate = new Date();
+        targetDate.setHours(targetH, targetM, 0, 0);
+        
+        let notifTimeMs = targetDate.getTime() - (offsetMins * 60000);
+        
+        const diff = currentTimeMs - notifTimeMs;
+        if (diff >= 0 && diff < 15000) {
+          if (!this.notifiedSet.has(c.id)) {
+            this.notifiedSet.add(c.id);
+            this.trigger(c, offsetMins);
+          }
+        }
+      }
+    });
+  },
+  
+  trigger(card, offsetMins) {
+    const title = card.content;
+    let desc = '';
+    
+    if (card.type === 'calendar' && card.eventTime) desc = `${card.eventTime}`;
+    else if (card.reminderTime) desc = `${card.reminderTime}`;
+    
+    if (offsetMins > 0) desc += ` (starts in ${offsetMins}m)`;
+    
+    this.playSound();
+    
+    if ('Notification' in window && Notification.permission === 'granted') {
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(title, { body: desc, tag: card.id });
+        });
+      } else {
+        new Notification(title, { body: desc });
+      }
+    }
+    
+    this.showBanner(title, desc);
+  },
+  
+  playSound() {
+    const sound = SettingsView.prefs.notifSound || 'default';
+    if (sound === 'none') return;
+    
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    
+    if (sound === 'synth') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(800, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.5);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.5);
+    } else if (sound === 'chime') {
+      [0, 0.2].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(1000, ctx.currentTime + delay);
+        gain.gain.setValueAtTime(0, ctx.currentTime + delay);
+        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + delay + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + delay + 0.3);
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.3);
+      });
+    } else {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(600, ctx.currentTime);
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.5, ctx.currentTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(); osc.stop(ctx.currentTime + 0.5);
+    }
+  },
+  
+  showBanner(title, desc) {
+    const banner = document.getElementById('notifBanner');
+    if (!banner) return;
+    document.getElementById('notifBannerTitle').textContent = title;
+    const dEl = document.getElementById('notifBannerDesc');
+    dEl.textContent = desc;
+    
+    const style = SettingsView.prefs.bannerStyle || 'minimal';
+    dEl.style.display = style === 'full' ? 'block' : 'none';
+    
+    banner.classList.add('is-active');
+    
+    if (this.activeBannerTimeout) clearTimeout(this.activeBannerTimeout);
+    this.activeBannerTimeout = setTimeout(() => {
+      this.hideBanner();
+    }, 6000);
+  },
+  
+  hideBanner() {
+    const banner = document.getElementById('notifBanner');
+    if (banner) banner.classList.remove('is-active');
   }
 };
 
@@ -118,13 +314,20 @@ const TourManager = {
     
     if (isComplete === 'true') {
       onboarding.classList.remove('is-active');
+      NotificationManager.init();
       return;
     }
     
     onboarding.classList.add('is-active');
     
-    document.getElementById('btnSkipTour').addEventListener('click', () => this.finish());
-    document.getElementById('btnTourNext').addEventListener('click', () => this.next());
+    document.getElementById('btnSkipTour').addEventListener('click', () => {
+      this.finish();
+      NotificationManager.init();
+    });
+
+    document.getElementById('btnTourNext').addEventListener('click', () => {
+      this.next();
+    });
 
     // Swipe gestures
     const slidesContainer = document.getElementById('tourSlides');
@@ -606,8 +809,9 @@ const ExpandedCardView = {
     });
   },
 
-  open(cardId) {
-    if (!OverlayManager.requestOpen(this)) return;
+  async open(cardId) {
+    const proceed = await OverlayManager.requestOpen(this);
+    if (!proceed) return;
     this.currentCard = allCards.find(c => c.id === cardId);
     if (!this.currentCard) return;
 
@@ -952,7 +1156,8 @@ class VoiceRecorder {
   }
 
   async open() {
-    if (!OverlayManager.requestOpen(this)) return;
+    const proceed = await OverlayManager.requestOpen(this);
+    if (!proceed) return;
     this.overlay.classList.add('is-active');
     this.finalText = '';
     this.interimText = '';
@@ -1565,8 +1770,9 @@ const Composer = {
     this.addBtn.addEventListener('click', () => this._submit());
   },
 
-  open() {
-    if (!OverlayManager.requestOpen(this)) return;
+  async open() {
+    const proceed = await OverlayManager.requestOpen(this);
+    if (!proceed) return;
     this.input.value = '';
     this.detected.innerHTML = '';
     this.input.style.height = 'auto';
@@ -2466,8 +2672,9 @@ const SettingsView = {
     localStorage.setItem('meyePrefsV2', JSON.stringify(this.prefs));
   },
 
-  open() { 
-    if (!OverlayManager.requestOpen(this)) return;
+  async open() { 
+    const proceed = await OverlayManager.requestOpen(this);
+    if (!proceed) return;
     this.page.classList.add('is-active'); 
   },
   close() { 
@@ -2546,8 +2753,9 @@ const HeatmapView = {
     this.btnBack = document.getElementById('heatmapBack');
     this.content = document.getElementById('heatmapContent');
 
-    this.btnOpen.addEventListener('click', () => {
-      if (!OverlayManager.requestOpen(this)) return;
+    this.btnOpen.addEventListener('click', async () => {
+      const proceed = await OverlayManager.requestOpen(this);
+      if (!proceed) return;
       this.render();
       this.page.classList.add('is-active');
     });

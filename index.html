@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>meye</title>
   <meta name="description" content="Personal productivity — to-do, calendar, notes" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -586,6 +588,34 @@
 
     <!-- End Side Container -->
       </div>
+    </div>
+  </div>
+
+  <!-- Custom Warning Dialog -->
+  <div class="custom-dialog-overlay" id="customDialogOverlay">
+    <div class="custom-dialog-modal">
+      <h3 class="custom-dialog-title" id="customDialogTitle">Warning</h3>
+      <p class="custom-dialog-message" id="customDialogMessage">Are you sure?</p>
+      <div class="custom-dialog-actions">
+        <button class="custom-dialog-btn cancel" id="customDialogCancel">Cancel</button>
+        <button class="custom-dialog-btn confirm" id="customDialogConfirm">Discard</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Banner -->
+  <div class="notif-banner" id="notifBanner">
+    <div class="notif-banner-inner">
+      <div class="notif-banner-icon">
+        <iconify-icon icon="solar:bell-bing-bold" width="24" height="24"></iconify-icon>
+      </div>
+      <div class="notif-banner-content">
+        <div class="notif-banner-title" id="notifBannerTitle">Title</div>
+        <div class="notif-banner-desc" id="notifBannerDesc" style="display:none;">Description</div>
+      </div>
+      <button class="notif-banner-close" id="notifBannerClose">
+        <iconify-icon icon="solar:close-circle-linear" width="24" height="24"></iconify-icon>
+      </button>
     </div>
   </div>
 
