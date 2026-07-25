@@ -314,6 +314,7 @@ const TourManager = {
     
     if (isComplete === 'true') {
       onboarding.classList.remove('is-active');
+      onboarding.style.display = 'none';
       NotificationManager.init();
       return;
     }
@@ -447,6 +448,7 @@ const TourManager = {
     onboarding.style.pointerEvents = 'none';
     setTimeout(() => {
       onboarding.classList.remove('is-active');
+      onboarding.style.display = 'none';
     }, 400);
   }
 };
@@ -1254,7 +1256,8 @@ class VoiceRecorder {
       canvasCtx.fillStyle = isLight ? `rgba(0,0,0,1)` : `rgba(255,255,255,1)`;
 
       for (let i = 0; i < this.MAX_BARS; i++) {
-        const val  = this.waveHistory[i] ?? 0.02;
+        const val  = this.waveHistory[i] ?? 0;
+        if (val === 0) continue; // Skip drawing to prevent dotted line at silence
         const barH = Math.max(3, val * H * 0.9);
         const x    = i * step;
         const alpha = 0.3 + (i / this.MAX_BARS) * 0.7; // fade in from left
@@ -1285,11 +1288,19 @@ class VoiceRecorder {
     this.recognition.interimResults  = true;
     this.recognition.lang            = 'en-US';
 
+    // Timeout for stuck recognition
+    this.stalledTimeout = setTimeout(() => {
+      if (this.hintEl.style.display !== 'none' && !this.interimText && !this.finalText) {
+        this.hintEl.textContent = 'Speech taking too long. Check mic permissions or tap to restart.';
+      }
+    }, 10000);
+
     this.recognition.onaudiostart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Listening (mic active)...'; };
     this.recognition.onsoundstart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Hearing sound...'; };
     this.recognition.onspeechstart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Speech detected, transcribing...'; };
 
     this.recognition.onresult = (event) => {
+      clearTimeout(this.stalledTimeout);
       if (this.hintEl.style.display !== 'none') this.hintEl.style.display = 'none';
 
       let interim = '';
@@ -1315,6 +1326,7 @@ class VoiceRecorder {
     };
 
     this.recognition.onerror = (e) => {
+      clearTimeout(this.stalledTimeout);
       if (e.error === 'no-speech') return; // ignore silence
       this.hintEl.textContent = 'Mic Error: ' + e.error;
       console.warn('Speech error', e.error);
@@ -1327,7 +1339,13 @@ class VoiceRecorder {
       }
     };
 
-    this.recognition.start();
+    try {
+      this.recognition.start();
+    } catch(e) {
+      clearTimeout(this.stalledTimeout);
+      this.hintEl.textContent = 'Could not start speech recognition. Tap microphone again.';
+      console.error('Failed to start SpeechRecognition', e);
+    }
   }
 
   _startTimer() {
