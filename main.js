@@ -39,9 +39,14 @@ const CustomDialog = {
 const OverlayManager = {
   stack: [],
   isPopping: false,
+  ignorePopstate: 0,
 
   init() {
     window.addEventListener('popstate', (e) => {
+      if (this.ignorePopstate > 0) {
+        this.ignorePopstate--;
+        return;
+      }
       if (this.stack.length > 0) {
         this.isPopping = true;
         this.pop();
@@ -91,6 +96,7 @@ const OverlayManager = {
     }
     
     if (!this.isPopping) {
+      this.ignorePopstate++;
       history.back();
     }
   },
@@ -106,6 +112,7 @@ const OverlayManager = {
       }
       
       if (wasTop && !this.isPopping) {
+        this.ignorePopstate++;
         history.back();
       }
     }

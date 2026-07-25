@@ -83,8 +83,7 @@ button:focus-visible,
 [role="button"]:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid var(--accent-primary);
-  outline-offset: 3px;
+  outline: none;
 }
 
 /* --- App Layout Wrapper --- */
@@ -1346,6 +1345,7 @@ textarea:focus-visible {
   border-bottom: 1px solid rgba(255,255,255,0.06);
   cursor: pointer;
   color: rgba(255,255,255,0.5);
+  text-align: left;
 }
 .exp-todo-field svg {
   flex-shrink: 0;
