@@ -1317,95 +1317,106 @@ class VoiceRecorder {
   _startSpeech() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
+      this.hintEl.style.display = '';
       this.hintEl.textContent = 'Speech recognition not supported in this browser.';
       return;
     }
 
-    this.recognition = new SR();
-    this.recognition.continuous      = true;
-    this.recognition.interimResults  = true;
-    this.recognition.lang            = 'en-US';
+    const startSession = () => {
+      if (this.paused || !this.overlay.classList.contains('is-active')) return;
 
-    // Timeout: if no audio starts after 10s, prompt the user
+      // Always create a FRESH object — reusing the same object on Android
+      // causes it to replay previous session's results, causing duplication.
+      const rec = new SR();
+      this.recognition = rec;
+
+      // continuous=false: stops after each phrase, then onend fires cleanly.
+      // This prevents Android from keeping a stale audio buffer between restarts.
+      rec.continuous      = false;
+      rec.interimResults  = true;
+      rec.lang            = 'en-US';
+
+      rec.onaudiostart = () => {
+        this.hintEl.style.display = '';
+        this.hintEl.textContent = 'Listening...';
+        this.targetAmplitude = 0.04;
+      };
+      rec.onsoundstart  = () => { this.targetAmplitude = 0.35; };
+      rec.onspeechstart = () => { this.targetAmplitude = 0.55; };
+      rec.onsoundend    = () => { this.targetAmplitude = 0.04; };
+
+      rec.onresult = (event) => {
+        clearTimeout(this.stalledTimeout);
+        this.hintEl.style.display = 'none';
+        this.targetAmplitude = 0.7;
+
+        // Use resultIndex so we ONLY process results new to this event.
+        // This is safe because with continuous=false each session is short.
+        let sessionAddition = '';
+        let interimText = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            sessionAddition += t + ' ';
+            this.targetAmplitude = 0.3;
+          } else {
+            interimText = t; // only the latest interim
+          }
+        }
+
+        // committedText is ONLY updated via onend, never here.
+        // This prevents any double-counting if Android fires the same result twice.
+        this.finalText   = this.committedText + sessionAddition;
+        this.interimText = interimText;
+        this.finalEl.textContent   = this.finalText;
+        this.interimEl.textContent = interimText;
+        this.transcriptBox.scrollTop = this.transcriptBox.scrollHeight;
+      };
+
+      rec.onerror = (e) => {
+        this.targetAmplitude = 0.02;
+        if (e.error === 'no-speech') {
+          // Restart silently on no-speech
+          setTimeout(startSession, 100);
+          return;
+        }
+        this.hintEl.style.display = '';
+        this.hintEl.textContent = 'Mic Error: ' + e.error + '. Retrying...';
+        console.warn('SpeechRecognition error', e.error);
+        setTimeout(startSession, 1000);
+      };
+
+      rec.onend = () => {
+        // Commit the final text from this session before restarting.
+        // finalText already has committedText + sessionAddition baked in.
+        if (this.finalText.trim()) {
+          this.committedText = this.finalText;
+        }
+        // Clear interim display between sessions
+        this.interimEl.textContent = '';
+        this.targetAmplitude = 0.02;
+        // Restart with a fresh object after a short delay
+        setTimeout(startSession, 150);
+      };
+
+      try {
+        rec.start();
+      } catch(e) {
+        this.hintEl.style.display = '';
+        this.hintEl.textContent = 'Could not start. Reload and try again.';
+        console.error('SpeechRecognition start failed', e);
+      }
+    };
+
+    // Timeout: if no transcript appears in 10s, prompt user
     this.stalledTimeout = setTimeout(() => {
       if (!this.interimText && !this.finalText) {
         this.hintEl.style.display = '';
-        this.hintEl.textContent = 'Check microphone permissions, then tap mic again.';
+        this.hintEl.textContent = 'Check microphone permissions and try again.';
       }
     }, 10000);
 
-    // Drive waveform amplitude from speech events
-    this.recognition.onaudiostart  = () => {
-      this.hintEl.style.display = '';
-      this.hintEl.textContent = 'Listening...';
-      this.targetAmplitude = 0.04; // slight lift on audio start
-    };
-    this.recognition.onsoundstart  = () => {
-      this.targetAmplitude = 0.35; // medium pulse when sound detected
-    };
-    this.recognition.onspeechstart = () => {
-      this.targetAmplitude = 0.55; // bigger pulse when speech detected
-    };
-    this.recognition.onsoundend    = () => {
-      this.targetAmplitude = 0.04; // calm down when sound stops
-    };
-    this.recognition.onspeechend   = () => {
-      this.targetAmplitude = 0.02; // back to resting
-    };
-
-    this.recognition.onresult = (event) => {
-      clearTimeout(this.stalledTimeout);
-      this.hintEl.style.display = 'none';
-      this.targetAmplitude = 0.7;
-
-      // Rebuild the CURRENT SESSION's text from scratch (index 0 → end).
-      // Do NOT append to this.finalText — that would duplicate on Android's cumulative re-delivery.
-      // Prepend this.committedText (saved from prior sessions) to get the full transcript.
-      let sessionFinal = '';
-      let interimText = '';
-      for (let i = 0; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          sessionFinal += t + ' ';
-          this.targetAmplitude = 0.3;
-        } else {
-          interimText += t;
-        }
-      }
-
-      this.finalText   = this.committedText + sessionFinal;
-      this.interimText = interimText;
-      this.finalEl.textContent   = this.finalText;
-      this.interimEl.textContent = interimText;
-      this.transcriptBox.scrollTop = this.transcriptBox.scrollHeight;
-    };
-
-    this.recognition.onerror = (e) => {
-      clearTimeout(this.stalledTimeout);
-      this.targetAmplitude = 0.02;
-      if (e.error === 'no-speech') return; // ignore brief silence
-      this.hintEl.style.display = '';
-      this.hintEl.textContent = 'Mic Error: ' + e.error + '. Retrying...';
-      console.warn('SpeechRecognition error', e.error);
-    };
-
-    // Auto-restart (Chrome/Android stops recognition periodically)
-    this.recognition.onend = () => {
-      if (!this.paused && this.overlay.classList.contains('is-active')) {
-        // Commit current session's final text so it persists across the restart
-        this.committedText = this.finalText;
-        try { this.recognition.start(); } catch(_) {}
-      }
-    };
-
-    try {
-      this.recognition.start();
-    } catch(e) {
-      clearTimeout(this.stalledTimeout);
-      this.hintEl.style.display = '';
-      this.hintEl.textContent = 'Could not start speech recognition. Reload and try again.';
-      console.error('Failed to start SpeechRecognition', e);
-    }
+    startSession();
   }
 
   _startTimer() {
