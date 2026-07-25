@@ -12,6 +12,8 @@
   <!-- Google Calendar OAuth -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js"></script>
+  <!-- FontAwesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -322,7 +324,7 @@
 
           <div class="settings-row" id="settingsGitHubSync">
             <div class="settings-icon-pill" style="color:#FFF; background:#333;">
-              <iconify-icon icon="fa-brands:github" width="22" height="22"></iconify-icon>
+              <i class="fa-brands fa-github" style="font-size: 22px;"></i>
             </div>
             <span class="settings-row-label">GitHub Gist Sync</span>
             <div class="settings-row-right">
@@ -558,9 +560,9 @@
           <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Your Data, Anywhere</h2>
           <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Completely local, lightning fast. Sync it across all your devices using GitHub Gists.</p>
           <div class="tour-mockup-wrapper">
-            <div class="card" style="padding: 24px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.1);">
-              <iconify-icon icon="mdi:github" width="48" height="48" style="color: #fff; margin-bottom: 16px;"></iconify-icon>
-              <h3 style="font-size:16px; font-weight:600; margin:0 0 8px 0; color:var(--text-primary);">Bring Your Own Cloud</h3>
+            <div style="background: var(--bg-secondary); border-radius: 16px; padding: 32px 24px; text-align: center; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 24px;">
+              <i class="fa-brands fa-github" style="font-size: 48px; color: #fff; margin-bottom: 16px;"></i>
+              <h3 style="margin: 0 0 12px 0; font-size: 20px;">Bring Your Own Cloud</h3>
               <p style="font-size:13px; color:var(--text-tertiary); margin:0;">Zero servers, maximum privacy.</p>
             </div>
           </div>
