@@ -1,13 +1,11 @@
-const CACHE_NAME = 'meye-cache-v3';
+const CACHE_NAME = 'meye-cache-v4';
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
-      // Just cache some basics if needed, or nothing for now since it's dynamic
       return cache.addAll(['/', '/index.html', '/main.js', '/style.css']);
-    }).catch(() => {}) // ignore errors if offline
+    }).catch(() => {})
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', event => {
@@ -20,9 +18,30 @@ self.addEventListener('fetch', event => {
   );
 });
 
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  // Try to open/focus the app
+  
+  if (event.notification.tag === 'app-update') {
+    event.waitUntil(
+      clients.matchAll({ type: 'window' }).then(clientList => {
+        for (const client of clientList) {
+          if (client.url.includes(self.registration.scope)) {
+            client.postMessage({ type: 'FORCE_RELOAD' });
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) return clients.openWindow('/');
+      })
+    );
+    return;
+  }
+  
   event.waitUntil(
     clients.matchAll({ type: 'window' }).then(clientList => {
       for (const client of clientList) {
@@ -30,9 +49,7 @@ self.addEventListener('notificationclick', event => {
           return client.focus();
         }
       }
-      if (clients.openWindow) {
-        return clients.openWindow('/');
-      }
+      if (clients.openWindow) return clients.openWindow('/');
     })
   );
 });

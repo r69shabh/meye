@@ -99,7 +99,52 @@ const NotificationManager = {
     
     if ('serviceWorker' in navigator) {
       try {
-        await navigator.serviceWorker.register('/sw.js');
+        const reg = await navigator.serviceWorker.register('/sw.js');
+        
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New update available
+                const toast = document.getElementById('updateToast');
+                if (toast) {
+                  toast.classList.add('is-active');
+                  toast.onclick = () => {
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  };
+                }
+                
+                // Show a system notification
+                if (Notification.permission === 'granted') {
+                  new Notification('Update Available', { 
+                    body: 'Tap to refresh and apply the update.',
+                    tag: 'app-update'
+                  });
+                }
+              }
+            });
+          }
+        });
+        
+        // Reload when the new worker takes over
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (!refreshing) {
+            refreshing = true;
+            window.location.reload();
+          }
+        });
+        
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'FORCE_RELOAD') {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
+          }
+        });
+        
       } catch(e) {
         console.warn('SW registration failed:', e);
       }
