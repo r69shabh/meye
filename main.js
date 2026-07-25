@@ -1540,11 +1540,11 @@ const SmartParser = {
   REPEAT_COUNT:  /\b(for\s+)?(\d+)\s+(days?|weeks?|months?|times?)\b/i,
 
   // Type signals
-  ROUTINE_RE:  /\b(every\s+(day|morning|evening|night|week)|daily|each\s+day|routine|workout|exercise|gym|yoga|meditate|meditation|journaling?|habit|stretch(ing)?|calisthenics|pull\s*day|push\s*day|leg\s*day|run(ning)?|jog(ging)?)\b/i,
+  HABIT_KEYWORDS_RE: /\b(workout|exercise|gym|yoga|meditate|meditation|journaling?|stretch(ing)?|calisthenics|pull\s*day|push\s*day|leg\s*day|run(ning)?|jog(ging)?)\b/i,
   CALENDAR_RE: /\b(meeting|standup|stand-?up|interview|appointment|sync|session|catch-?up|debrief|demo|presentation|call\s+with|chat\s+with|lunch\s+with|dinner\s+with|coffee\s+with|hangout|hang\s+out|zoom|teams\s+call)\b/i,
   TODO_RE:     /\b(buy|get|pick\s+up|grab|order|call|text|message|email|send|reply|respond|submit|upload|download|finish|complete|write|clean|fix|check|review|read|watch|book|reserve|pay|return|fill|sign|print|prepare|plan|organise|organize|remind|bring|drop|file|update|install|set\s+up|register|cancel|reschedule|renew|collect|go\s+to)\b/i,
 
-  NOTE_SIGNAL_RE: /\b(trying to (understand|figure out|see|know|think|process|make sense)|not sure|i('?m| am) not|i wonder|wondering|let me (think|see|check)|i don'?t know|just thinking|was thinking|it seems|feels like|i noticed|interesting|what'?s happening|i'?m confused|seems like)\b/i,
+  NOTE_SIGNAL_RE: /\b(trying to (understand|figure out|see|know|think|process|make sense)|not sure|i('?m| am) not|i wonder|wondering|let me (think|see|check)|i don'?t know|just thinking|was thinking|it seems|feels like|i noticed|interesting|what'?s happening|i'?m confused|seems like|today i|i went|i saw|i felt|i had|i was)\b/i,
 
   // Location extraction
   LOCATION_RE: /\bat\s+([A-Z][a-zA-Z''\s]{2,20})(?=\s|,|$)/,
@@ -1703,11 +1703,24 @@ const SmartParser = {
 
     // 6. Detect card type
     let type = 'note';
-    if      (this.ROUTINE_RE.test(text))  type = 'routine';
-    else if (this.CALENDAR_RE.test(text)) type = 'calendar';
-    else if (this.TODO_RE.test(text))     type = 'todo';
+    const lowerRaw = (rawText || '').toLowerCase();
+    
+    const explicitRoutine = /\b(every\s+(day|morning|evening|night|week|weekday)|daily|each\s+(day|morning|evening)|routine|habit)\b/.test(lowerRaw);
+    const explicitTodo = /\b(remind|forget|need to|have to|got to|gotta|task|to-do|reminder|remember to)\b/.test(lowerRaw);
+    const explicitNote = /\b(note to self|make a note|note:|journal|just thinking|was thinking|i noticed|log)\b/.test(lowerRaw);
 
-    if ((type === 'todo' || type === 'note') && this.NOTE_SIGNAL_RE.test(lower)) type = 'note';
+    if (explicitRoutine) {
+      type = 'routine';
+    } else if (this.CALENDAR_RE.test(text)) {
+      type = 'calendar';
+    } else if (explicitTodo || this.TODO_RE.test(text)) {
+      type = 'todo';
+    } else if (explicitNote || this.NOTE_SIGNAL_RE.test(lower)) {
+      type = 'note';
+    } else if (this.HABIT_KEYWORDS_RE.test(text)) {
+      type = 'routine';
+    }
+
     if (type === 'note' && reminderTime) type = 'todo';
 
     // Routines are always "daily" unless schedule says otherwise → no specific date
