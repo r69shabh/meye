@@ -37,18 +37,19 @@
 }
 
 body.light-theme {
-  --bg-primary: #F2F2F7;
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F7F7F7;
   --bg-card: #FFFFFF;
   --bg-card-hover: #F9F9F9;
   --bg-input: #E5E5EA;
   --bg-chip: #E5E5EA;
-  --bg-date-cell: #E5E5EA;
+  --bg-date-cell: #F7F7F7;
   --bg-date-selected: #000000;
   --bg-icon-btn: #E5E5EA;
 
   --text-primary: #000000;
   --text-secondary: #8E8E93;
-  --text-tertiary: #AEAEB2;
+  --text-tertiary: #C7C7CC;
   --text-on-selected: #FFFFFF;
   --text-chip: #3A3A3C;
 }
@@ -2308,7 +2309,7 @@ button {
 }
 .light-theme .speaking-overlay,
 .light-theme .review-overlay {
-  background: #f7f7f7;
+  background: #FFFFFF;
 }
 .light-theme .speaking-overlay .timer-text,
 .light-theme .review-overlay .review-title,

@@ -1235,7 +1235,9 @@ class VoiceRecorder {
         sum += (data[i] / 255.0) * (data[i] / 255.0);
       }
       let rms = Math.sqrt(sum / slice);
-      if (rms < 0.05) rms = 0; 
+      // Amplify and remove aggressive noise gate
+      rms = Math.min(1.0, rms * 2.5);
+      if (rms < 0.02) rms = 0; 
       
       this.waveHistory.push(rms);
       if (this.waveHistory.length > this.MAX_BARS) {
@@ -1252,7 +1254,7 @@ class VoiceRecorder {
       canvasCtx.fillStyle = isLight ? `rgba(0,0,0,1)` : `rgba(255,255,255,1)`;
 
       for (let i = 0; i < this.MAX_BARS; i++) {
-        const val  = this.waveHistory[i] ?? 0.04;
+        const val  = this.waveHistory[i] ?? 0.02;
         const barH = Math.max(3, val * H * 0.9);
         const x    = i * step;
         const alpha = 0.3 + (i / this.MAX_BARS) * 0.7; // fade in from left
@@ -1283,6 +1285,10 @@ class VoiceRecorder {
     this.recognition.interimResults  = true;
     this.recognition.lang            = 'en-US';
 
+    this.recognition.onaudiostart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Listening (mic active)...'; };
+    this.recognition.onsoundstart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Hearing sound...'; };
+    this.recognition.onspeechstart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Speech detected, transcribing...'; };
+
     this.recognition.onresult = (event) => {
       if (this.hintEl.style.display !== 'none') this.hintEl.style.display = 'none';
 
@@ -1310,6 +1316,7 @@ class VoiceRecorder {
 
     this.recognition.onerror = (e) => {
       if (e.error === 'no-speech') return; // ignore silence
+      this.hintEl.textContent = 'Mic Error: ' + e.error;
       console.warn('Speech error', e.error);
     };
 
