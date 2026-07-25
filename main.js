@@ -2264,6 +2264,21 @@ const SettingsView = {
         return;
       }
 
+      if (e.target.closest('#settingsGoogleCalSync')) {
+        const btnLogin = document.getElementById('btnStartGoogleCalLogin');
+        if (this.prefs.calSync === 'google') {
+          btnLogin.textContent = 'Disconnect Google Calendar';
+          btnLogin.style.background = '#FF453A';
+          btnLogin.style.color = '#FFF';
+        } else {
+          btnLogin.textContent = 'Link Google Calendar';
+          btnLogin.style.background = 'var(--text-primary)';
+          btnLogin.style.color = 'var(--bg-primary)';
+        }
+        document.getElementById('settingsGoogleCalOverlay').style.display = 'flex';
+        return;
+      }
+
       if (e.target.closest('#settingsGitHubSync')) {
         document.getElementById('settingsGitHubOverlay').style.display = 'flex';
         return;
@@ -2304,6 +2319,16 @@ const SettingsView = {
 
     // Google Calendar Overlay
     document.getElementById('btnStartGoogleCalLogin').addEventListener('click', () => {
+      if (this.prefs.calSync === 'google') {
+        // Disconnect
+        this.prefs.calSync = 'none';
+        localStorage.removeItem('meyeGCalToken');
+        this.save();
+        this.applyAll();
+        document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
+        return;
+      }
+      
       if (!this.tokenClient) {
         alert('Google API client is still loading. Please try again in a moment.');
         return;
@@ -2313,13 +2338,6 @@ const SettingsView = {
     });
     document.getElementById('btnCancelGoogleCal').addEventListener('click', () => {
       document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
-      // Reset dropdown value back to none if canceled
-      if (this.prefs.calSync === 'google') {
-        this.prefs.calSync = 'none';
-        this.save();
-        const svEl = document.getElementById('sv-calSync');
-        if (svEl) svEl.textContent = 'None';
-      }
     });
 
     // File Import
@@ -2353,7 +2371,6 @@ const SettingsView = {
       appearance: { system: 'System', light: 'Light', dark: 'Dark' },
       accentColor: { '#FF453A': 'Red', '#5E9CFF': 'Blue', '#BF5AF2': 'Violet', '#FF9F43': 'Amber', '#34C759': 'Green', '#FF375F': 'Pink' },
       fontSize: { small: 'Small', default: 'Default', large: 'Large' },
-      calSync: { none: 'None', apple: 'Apple Calendar', google: 'Google Calendar' },
       defaultReminder: { none: 'None', '0': 'At time', '5': '5 min', '15': '15 min', '30': '30 min', '60': '1 hour' },
       notifSound: { none: 'None', default: 'Default', chime: 'Double Chime', synth: 'Synth Bell' },
       bannerStyle: { minimal: 'Minimal', full: 'Full' }
@@ -2362,6 +2379,10 @@ const SettingsView = {
       const el = document.getElementById(`sv-${key}`);
       if (el) el.textContent = labelMap[this.prefs[key]] || this.prefs[key];
     }
+    
+    const calSv = document.getElementById('sv-calSyncStatus');
+    if (calSv) calSv.textContent = this.prefs.calSync === 'google' ? 'Active' : 'Not Configured';
+
     // Auto backup toggle
     const tog = document.getElementById('toggleAutoBackup');
     if (tog) tog.classList.toggle('is-on', this.prefs.autoBackup);
@@ -2435,7 +2456,6 @@ const SettingsView = {
     if (key === 'accentColor') this.applyAccentColor(val);
     if (key === 'fontSize') this.applyFontSize(val);
     if (key === 'notifSound') NotificationEngine.soundEnabled = val !== 'none';
-    if (key === 'calSync') this.handleCalSync(val);
 
     this.save();
     this.closeDropdown();
@@ -2455,18 +2475,15 @@ const SettingsView = {
           callback: (tokenResponse) => {
             if (tokenResponse && tokenResponse.access_token) {
               localStorage.setItem('meyeGCalToken', tokenResponse.access_token);
+              this.prefs.calSync = 'google';
+              this.save();
+              this.applyAll();
               alert('Successfully linked Google Calendar! Events can now be fetched.');
             }
           },
         });
       }
     }, 500);
-  },
-
-  handleCalSync(val) {
-    if (val === 'google') {
-      document.getElementById('settingsGoogleCalOverlay').style.display = 'flex';
-    }
   },
 
   save() {
