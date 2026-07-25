@@ -1,0 +1,17 @@
+{
+  "name": "meyee",
+  "short_name": "meyee",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "Personal productivity — to-do, calendar, notes",
+  "icons": [
+    {
+      "src": "/icon.jpg",
+      "sizes": "192x192 512x512 1024x1024",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ]
+}
