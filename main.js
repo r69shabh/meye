@@ -1550,9 +1550,9 @@ const SmartParser = {
 
   INTENT_PREFIX: /^(hey[,\s]*|hi[,\s]*)?(please\s+)?(can you\s+)?(remind me (to|that|about)?|don'?t forget (to)?|note (that|to self[:\s]*)?|i('ve| have)?\s+(to|got to|gotta|need to|should)|we\s+(need|should|have) to|remember (to)?|make a note|add (a )?(reminder|task|to[-\s]?do)[:\s]*|set (a )?reminder (to)?|i want to|i('?d| would) like to|let'?s|note[:\s]+)\s*/i,
 
-  // Time patterns — handles "8pm", "8:30 AM", "around 8", "noon", "midnight", "from 2 to 3", "2-3pm"
-  TIME_RE:       /(around\s+|at\s+|by\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|AM|PM)|\b(noon|midnight)\b/i,
-  TIME_RANGE_RE: /from\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s+to\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/i,
+  // Time patterns — handles "8pm", "8:30 AM", "around 8", "noon", "midnight", "from 2 to 3", "2-3pm", "8:00 p.m.", "8 o'clock"
+  TIME_RE:       /(?:(around\s+|at\s+|by\s+)(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?|(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock))|\b(noon|midnight)\b/i,
+  TIME_RANGE_RE: /from\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?\s+to\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/i,
 
   // Date patterns
   DATE_RELATIVE: /\b(today|tonight|tomorrow|tmrw|tmr|day after tomorrow)\b/i,
@@ -1575,9 +1575,10 @@ const SmartParser = {
 
   // Temporal phrases to strip COMPLETELY from content
   TEMPORAL_STRIP: [
-    /(around\s+|at\s+|by\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/gi,
+    /(?:around\s+|at\s+|by\s+)(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/gi,
+    /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)/gi,
     /\b(noon|midnight)\b/gi,
-    /from\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s+to\s+(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/gi,
+    /from\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?\s+to\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/gi,
     /\b(in the|this|every)\s+(morning|afternoon|evening|night)\b/gi,
     /\b(tomorrow|tmrw|tmr|today|tonight|yesterday|day after tomorrow)\b/gi,
     /\b(next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi,
@@ -1607,10 +1608,12 @@ const SmartParser = {
   // ── Helpers ───────────────────────────────────────────────────────
   _parseTimeStr(h, m, ap) {
     h = parseInt(h); m = m ? parseInt(m) : 0;
-    ap = (ap || '').toLowerCase();
+    ap = (ap || '').toLowerCase().replace(/\./g, '');
     if (ap === 'pm' && h < 12) h += 12;
     if (ap === 'am' && h === 12) h = 0;
-    if (!ap && h >= 1 && h <= 7) h += 12; // assume PM for bare "8", "5" etc.
+    // Assume PM for bare numbers "1" through "8" (e.g. "at 8" -> 8 PM). 
+    // Usually 9, 10, 11 bare are assumed AM.
+    if (!ap && h >= 1 && h <= 8) h += 12; 
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   },
 
@@ -1678,10 +1681,13 @@ const SmartParser = {
     } else {
       const tm = text.match(this.TIME_RE);
       if (tm) {
-        if (tm[5]) {
-          reminderTime = tm[5].toLowerCase() === 'noon' ? '12:00' : '00:00';
+        if (tm[8]) {
+          reminderTime = tm[8].toLowerCase() === 'noon' ? '12:00' : '00:00';
         } else {
-          reminderTime = this._parseTimeStr(tm[2], tm[3], tm[4]);
+          const h = tm[2] || tm[5];
+          const m = tm[3] || tm[6];
+          const ap = tm[4] || tm[7];
+          reminderTime = this._parseTimeStr(h, m, ap);
         }
       }
     }
