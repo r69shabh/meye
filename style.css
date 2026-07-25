@@ -419,6 +419,8 @@ textarea:focus-visible {
   color: var(--text-primary);
   line-height: 1.45;
   letter-spacing: -0.2px;
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 
 /* Card tags */
@@ -465,7 +467,7 @@ textarea:focus-visible {
 /* To-do checkbox */
 .card-checkbox {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   margin-bottom: 2px;
 }
