@@ -860,12 +860,8 @@ const ExpandedCardView = {
 
     this.menuEdit.addEventListener('click', () => {
       this.menuElement.style.display = 'none';
-      if (this.currentCard?.type === 'calendar') {
-        ExpandedCardView.enterCalendarEditMode();
-      } else {
-        const input = document.getElementById('editContent');
-        if (input) input.focus();
-      }
+      const input = document.getElementById('editContent');
+      if (input) input.focus();
     });
 
     this.menuTranscript.addEventListener('click', () => {
@@ -965,16 +961,14 @@ const ExpandedCardView = {
       html = `
         <div class="exp-todo-view">
           <textarea class="exp-todo-title" id="editContent" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'" placeholder="Task...">${c.content}</textarea>
-          <label class="exp-todo-field">
+          <div class="exp-todo-field" id="todoDateBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             <span class="exp-todo-field-text" id="displayTodoDate">${dateStr}</span>
-            <input type="date" id="editTodoDate" class="exp-todo-hidden-input" value="${c.date}">
-          </label>
-          <label class="exp-todo-field">
+          </div>
+          <div class="exp-todo-field" id="todoTimeBtn">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <span class="exp-todo-field-text ${c.reminderTime ? '' : 'exp-todo-field-empty'}" id="displayTodoTime">${timeDisplay}</span>
-            <input type="time" id="editTodoTime" class="exp-todo-hidden-input" value="${c.reminderTime || ''}">
-          </label>
+          </div>
           ${c.details ? `<p class="exp-todo-note">${c.details}</p>` : ''}
         </div>
       `;
@@ -989,11 +983,10 @@ const ExpandedCardView = {
       };
       html = `
         <div class="exp-cal-view">
-          <p class="exp-cal-title" id="editContent" contenteditable="false">${c.content}</p>
+          <textarea class="exp-todo-title" id="editContent" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'" placeholder="Event...">${c.content}</textarea>
           <div class="exp-cal-row">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <span class="exp-cal-row-view">${fmtT(startRaw)} – ${fmtT(endRaw)}</span>
-            <div class="exp-cal-row-edit" style="display:none; gap:8px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center; width:100%;">
               <input type="time" id="editTimeStart" value="${startRaw ? startRaw.trim() : '09:00'}">
               <span style="color:rgba(255,255,255,0.4)">–</span>
               <input type="time" id="editTimeEnd" value="${endRaw ? endRaw.trim() : '10:00'}">
@@ -1001,13 +994,11 @@ const ExpandedCardView = {
           </div>
           <div class="exp-cal-row">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <span class="exp-cal-row-view ${c.location ? '' : 'exp-todo-field-empty'}">${c.location || 'Add location'}</span>
-            <input class="exp-cal-row-edit" style="display:none; width:100%;" type="text" id="editLocation" placeholder="Add location" value="${c.location || ''}">
+            <input style="width:100%;" type="text" id="editLocation" placeholder="Add location" value="${c.location || ''}">
           </div>
           <div class="exp-cal-row">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            <span class="exp-cal-row-view ${c.meetLink ? '' : 'exp-todo-field-empty'}">${c.meetLink || 'Add meeting link'}</span>
-            <input class="exp-cal-row-edit" style="display:none; width:100%;" type="url" id="editLink" placeholder="https://..." value="${c.meetLink || ''}">
+            <input style="width:100%;" type="url" id="editLink" placeholder="https://..." value="${c.meetLink || ''}">
           </div>
           <div class="exp-cal-row">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34C759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
@@ -1061,9 +1052,7 @@ const ExpandedCardView = {
     const c = this.currentCard;
     if (c.type === 'todo') {
       const dateLabel = document.getElementById('displayTodoDate');
-      const dateInput = document.getElementById('editTodoDate');
       const timeLabel = document.getElementById('displayTodoTime');
-      const timeInput = document.getElementById('editTodoTime');
 
       const onPickerSave = (dateVal, timeVal) => {
         c.date = dateVal;
@@ -1072,21 +1061,19 @@ const ExpandedCardView = {
         if (dateVal && dateVal !== 'daily') {
           const dt = new Date(dateVal.split('-')[0], dateVal.split('-')[1]-1, dateVal.split('-')[2]);
           dateLabel.textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
-          if (dateInput) dateInput.value = dateVal;
         }
 
         if (timeVal) {
           const [hh, mm] = timeVal.split(':').map(Number);
           timeLabel.textContent = `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
           timeLabel.classList.remove('exp-todo-field-empty');
-          if (timeInput) timeInput.value = timeVal;
         }
       };
 
-      dateLabel?.parentElement.addEventListener('click', () => {
+      document.getElementById('todoDateBtn')?.addEventListener('click', () => {
         DateTimePicker.open('date', c.date, c.reminderTime, onPickerSave);
       });
-      timeLabel?.parentElement.addEventListener('click', () => {
+      document.getElementById('todoTimeBtn')?.addEventListener('click', () => {
         DateTimePicker.open('time', c.date, c.reminderTime, onPickerSave);
       });
     }
@@ -1131,13 +1118,6 @@ const ExpandedCardView = {
     }
   },
 
-  enterCalendarEditMode() {
-    const title = document.getElementById('editContent');
-    if (title) title.contentEditable = 'true';
-    document.querySelectorAll('.exp-cal-row-view').forEach(el => el.style.display = 'none');
-    document.querySelectorAll('.exp-cal-row-edit').forEach(el => el.style.display = 'flex');
-  },
-
   saveChanges() {
     if (!this.currentCard) return;
     const c = this.currentCard;
@@ -1150,10 +1130,7 @@ const ExpandedCardView = {
       if (body) c.details = body.value;
     }
     else if (c.type === 'todo') {
-      const t = document.getElementById('editTodoTime');
-      const d = document.getElementById('editTodoDate');
-      if (t && t.value) c.reminderTime = t.value;
-      if (d && d.value) c.date = d.value;
+      // time/date are updated immediately in onPickerSave
     }
     else if (c.type === 'calendar') {
       const s = document.getElementById('editTimeStart');
