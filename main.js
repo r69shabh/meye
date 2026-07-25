@@ -1000,38 +1000,29 @@ const ExpandedCardView = {
       `;
     }
     else if (c.type === 'calendar') {
-      this.dateEl.style.display = 'block';
-      const [startRaw, endRaw] = (c.eventTime || '09:00 – 10:00').split(' – ');
-      const fmtT = (t) => {
-        if (!t) return '';
-        const [hh, mm] = t.trim().split(':').map(Number);
-        return `${hh % 12 || 12}:${String(mm).padStart(2,'0')} ${hh >= 12 ? 'PM' : 'AM'}`;
-      };
-      html = `
         <div class="exp-cal-view">
           <textarea class="exp-todo-title" id="editContent" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'" placeholder="Event...">${c.content}</textarea>
-          <div class="exp-cal-row">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <div style="display:flex; gap:8px; align-items:center; width:100%;">
-              <input type="time" id="editTimeStart" value="${startRaw ? startRaw.trim() : '09:00'}">
-              <span style="color:rgba(255,255,255,0.4)">–</span>
-              <input type="time" id="editTimeEnd" value="${endRaw ? endRaw.trim() : '10:00'}">
+          <div class="exp-todo-field" id="calDateBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span class="exp-todo-field-text" id="displayCalDate">${dateStr}</span>
+          </div>
+          <div style="display:flex; gap:16px;">
+            <div class="exp-todo-field" id="calStartTimeBtn" style="flex:1;">
+              <span class="exp-todo-field-text" id="displayCalStartTime" style="color: ${startRaw ? 'var(--text-primary)' : 'var(--text-tertiary)'}">${fmtT(startRaw) || 'Start time'}</span>
+            </div>
+            <div class="exp-todo-field" id="calEndTimeBtn" style="flex:1;">
+              <span class="exp-todo-field-text" id="displayCalEndTime" style="color: ${endRaw ? 'var(--text-primary)' : 'var(--text-tertiary)'}">${fmtT(endRaw) || 'End time'}</span>
             </div>
           </div>
-          <div class="exp-cal-row">
+          <div class="exp-todo-field">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            <input style="width:100%;" type="text" id="editLocation" placeholder="Add location" value="${c.location || ''}">
+            <input class="exp-todo-field-text" type="text" id="editLocation" placeholder="Add location" value="${c.location || ''}" style="background:transparent; border:none; outline:none; font-family:inherit;">
           </div>
-          <div class="exp-cal-row">
+          <div class="exp-todo-field">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-            <input style="width:100%;" type="url" id="editLink" placeholder="https://..." value="${c.meetLink || ''}">
-          </div>
-          <div class="exp-cal-row">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34C759" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-            <span style="color:#34C759; font-size:13px;">Synced with Apple Calendar</span>
+            <input class="exp-todo-field-text" type="url" id="editLink" placeholder="Add meeting link" value="${c.meetLink || ''}" style="background:transparent; border:none; outline:none; font-family:inherit;">
           </div>
         </div>
-      `;
     }
     else if (c.type === 'routine') {
       this.dateEl.style.display = 'none';
@@ -1103,6 +1094,47 @@ const ExpandedCardView = {
         DateTimePicker.open('time', c.date, c.reminderTime, onPickerSave);
       });
     }
+    else if (c.type === 'calendar') {
+      let [startRaw, endRaw] = (c.eventTime || '').split(' – ');
+      
+      const onPickerSaveStart = (dateVal, timeVal) => {
+        if (dateVal) c.date = dateVal;
+        if (timeVal) {
+          startRaw = timeVal;
+          c.eventTime = `${startRaw || ''} – ${endRaw || ''}`;
+          document.getElementById('displayCalStartTime').textContent = window.formatTimeStr(timeVal);
+          document.getElementById('displayCalStartTime').style.color = 'var(--text-primary)';
+        }
+        if (dateVal) {
+          const dt = new Date(dateVal.split('-')[0], dateVal.split('-')[1]-1, dateVal.split('-')[2]);
+          document.getElementById('displayCalDate').textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+        }
+      };
+
+      const onPickerSaveEnd = (dateVal, timeVal) => {
+        if (dateVal) c.date = dateVal;
+        if (timeVal) {
+          endRaw = timeVal;
+          c.eventTime = `${startRaw || ''} – ${endRaw || ''}`;
+          document.getElementById('displayCalEndTime').textContent = window.formatTimeStr(timeVal);
+          document.getElementById('displayCalEndTime').style.color = 'var(--text-primary)';
+        }
+        if (dateVal) {
+          const dt = new Date(dateVal.split('-')[0], dateVal.split('-')[1]-1, dateVal.split('-')[2]);
+          document.getElementById('displayCalDate').textContent = dt.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+        }
+      };
+
+      document.getElementById('calDateBtn')?.addEventListener('click', () => {
+        DateTimePicker.open('date', c.date, startRaw, onPickerSaveStart);
+      });
+      document.getElementById('calStartTimeBtn')?.addEventListener('click', () => {
+        DateTimePicker.open('time', c.date, startRaw, onPickerSaveStart);
+      });
+      document.getElementById('calEndTimeBtn')?.addEventListener('click', () => {
+        DateTimePicker.open('time', c.date, endRaw, onPickerSaveEnd);
+      });
+    }
     else if (c.type === 'routine') {
       const list = document.getElementById('routineItems');
       const addBtn = document.getElementById('btnAddRoutineItem');
@@ -1159,11 +1191,8 @@ const ExpandedCardView = {
       // time/date are updated immediately in onPickerSave
     }
     else if (c.type === 'calendar') {
-      const s = document.getElementById('editTimeStart');
-      const e = document.getElementById('editTimeEnd');
       const loc = document.getElementById('editLocation');
       const lnk = document.getElementById('editLink');
-      if (s && e && s.value && e.value) c.eventTime = `${s.value} – ${e.value}`;
       if (loc) c.location = loc.value;
       if (lnk) c.meetLink = lnk.value;
     }
