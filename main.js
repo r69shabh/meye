@@ -415,9 +415,24 @@ function buildCardTags(card) {
 
 // --- State & Interactions ---
 
+function loadCards() {
+  const data = localStorage.getItem('meyeCards');
+  if (data) {
+    try { return JSON.parse(data); } catch(e) {}
+  }
+  return getMockCards();
+}
+
+function syncAndSave() {
+  localStorage.setItem('meyeCards', JSON.stringify(allCards));
+  if (typeof SyncManager !== 'undefined') {
+    SyncManager.syncToGitHub();
+  }
+}
+
 let currentDate = new Date();
 let selectedDate = new Date();
-let allCards = getMockCards();
+let allCards = loadCards();
 
 function init() {
   // Set header date
@@ -441,6 +456,8 @@ function init() {
   StatsManager.init();
   HeatmapView.init();
   TourManager.init();
+  SettingsView.init();
+  SyncManager.init();
 }
 
 function bindDateStripEvents() {
@@ -582,6 +599,7 @@ const ExpandedCardView = {
       const idx = allCards.findIndex(c => c.id === this.currentCard.id);
       if (idx > -1) {
         allCards.splice(idx, 1);
+        syncAndSave();
         renderCardFeed(allCards, selectedDate, currentDate);
         renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
       }
@@ -1212,6 +1230,7 @@ class VoiceRecorder {
     };
 
     allCards.push(newCard);
+    syncAndSave();
     this.reviewOverlay.classList.remove('is-active');
     renderCardFeed(allCards, selectedDate, today);
   }
@@ -1507,6 +1526,7 @@ function createCardFromParsed(parsed) {
   };
 
   allCards.unshift(newCard);
+  syncAndSave();
   renderCardFeed(allCards, selectedDate, currentDate);
   renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
   return newCard;
@@ -1943,7 +1963,153 @@ const NotificationEngine = {
 
 // ============================================
 // Settings View
+// ============================================// ============================================
+// Sync Manager (BYOC Architecture)
 // ============================================
+const SyncManager = {
+  gistId: null,
+  pat: null,
+
+  init() {
+    const savedState = JSON.parse(localStorage.getItem('meyeSyncState') || '{}');
+    this.gistId = savedState.gistId || null;
+    this.pat = savedState.pat || null;
+    this.updateStatusUI();
+  },
+
+  updateStatusUI() {
+    const statusEl = document.getElementById('sv-githubSyncStatus');
+    const syncNowBtn = document.getElementById('btnGitHubSyncNow');
+    if (statusEl) {
+      statusEl.textContent = this.pat ? (this.gistId ? 'Active' : 'PAT Saved') : 'Not Configured';
+      statusEl.style.color = (this.pat && this.gistId) ? '#34C759' : '';
+    }
+    if (syncNowBtn) {
+      syncNowBtn.style.display = (this.pat && this.gistId) ? 'block' : 'none';
+    }
+  },
+
+  savePAT(pat) {
+    this.pat = pat;
+    localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
+    this.updateStatusUI();
+    this.syncToGitHub();
+  },
+
+  async syncToGitHub() {
+    if (!this.pat) return;
+    
+    const payload = {
+      allCards: JSON.parse(localStorage.getItem('meyeCards') || '[]'),
+      stats: JSON.parse(localStorage.getItem('meyeStatsNew') || '{}'),
+      prefs: JSON.parse(localStorage.getItem('meyePrefsV2') || '{}')
+    };
+    
+    try {
+      const btn = document.getElementById('btnGitHubSyncNow');
+      if(btn) btn.textContent = "Syncing...";
+
+      const headers = {
+        'Accept': 'application/vnd.github+json',
+        'Authorization': `Bearer ${this.pat}`,
+        'X-GitHub-Api-Version': '2022-11-28'
+      };
+
+      if (!this.gistId) {
+        const res = await fetch('https://api.github.com/gists', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            description: "meye backup",
+            public: false,
+            files: { "meye_backup.json": { content: JSON.stringify(payload, null, 2) } }
+          })
+        });
+        const data = await res.json();
+        if (data.id) {
+          this.gistId = data.id;
+          localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
+        } else {
+          throw new Error('Failed to create Gist');
+        }
+      } else {
+        await fetch(`https://api.github.com/gists/${this.gistId}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify({
+            files: { "meye_backup.json": { content: JSON.stringify(payload, null, 2) } }
+          })
+        });
+      }
+      
+      if(btn) btn.textContent = "Synced!";
+      setTimeout(() => { if(btn) btn.textContent = "Sync Now"; }, 2000);
+      this.updateStatusUI();
+    } catch (err) {
+      console.error('GitHub Sync Error:', err);
+      const btn = document.getElementById('btnGitHubSyncNow');
+      if(btn) btn.textContent = "Failed!";
+      setTimeout(() => { if(btn) btn.textContent = "Sync Now"; }, 2000);
+    }
+  },
+
+  async pullFromGitHub() {
+    if (!this.pat || !this.gistId) return;
+    try {
+      const res = await fetch(`https://api.github.com/gists/${this.gistId}`, {
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': `Bearer ${this.pat}`
+        }
+      });
+      const data = await res.json();
+      if (data.files && data.files['meye_backup.json']) {
+        const content = JSON.parse(data.files['meye_backup.json'].content);
+        if (content.allCards) localStorage.setItem('meyeCards', JSON.stringify(content.allCards));
+        if (content.stats) localStorage.setItem('meyeStatsNew', JSON.stringify(content.stats));
+        if (content.prefs) localStorage.setItem('meyePrefsV2', JSON.stringify(content.prefs));
+        location.reload();
+      }
+    } catch (e) {
+      console.error("Pull failed", e);
+    }
+  },
+
+  exportJSON() {
+    const payload = {
+      allCards: JSON.parse(localStorage.getItem('meyeCards') || '[]'),
+      stats: JSON.parse(localStorage.getItem('meyeStatsNew') || '{}'),
+      prefs: JSON.parse(localStorage.getItem('meyePrefsV2') || '{}')
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `meye_backup_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
+  importJSON(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const payload = JSON.parse(e.target.result);
+        if (payload.allCards) localStorage.setItem('meyeCards', JSON.stringify(payload.allCards));
+        if (payload.stats) localStorage.setItem('meyeStatsNew', JSON.stringify(payload.stats));
+        if (payload.prefs) localStorage.setItem('meyePrefsV2', JSON.stringify(payload.prefs));
+        alert('Backup imported successfully!');
+        location.reload();
+      } catch (err) {
+        alert('Invalid backup file');
+      }
+    };
+    reader.readAsText(file);
+  }
+};
+
 const SettingsView = {
   page: null, dropdown: null, mediaQuery: null,
   activeRowEl: null, activeSetting: null,
@@ -1997,6 +2163,22 @@ const SettingsView = {
         return;
       }
 
+      // Sync Options
+      if (e.target.closest('#settingsGitHubSync')) {
+        document.getElementById('settingsGitHubOverlay').style.display = 'flex';
+        const input = document.getElementById('githubPatInput');
+        if (SyncManager.pat) input.value = SyncManager.pat;
+        return;
+      }
+      if (e.target.closest('#settingsExportBackup')) {
+        SyncManager.exportJSON();
+        return;
+      }
+      if (e.target.closest('#settingsImportBackup')) {
+        document.getElementById('importBackupFile').click();
+        return;
+      }
+
       // Reset All Data
       if (e.target.closest('#settingsResetAll')) {
         document.getElementById('settingsResetConfirm').style.display = 'flex';
@@ -2008,6 +2190,26 @@ const SettingsView = {
       if (item) {
         this.selectOption(item.dataset.val, item.dataset.label);
         return;
+      }
+    });
+
+    // GitHub PAT Overlay
+    document.getElementById('btnSaveGitHubPat').addEventListener('click', () => {
+      const pat = document.getElementById('githubPatInput').value.trim();
+      SyncManager.savePAT(pat);
+      document.getElementById('settingsGitHubOverlay').style.display = 'none';
+    });
+    document.getElementById('btnCancelGitHubPat').addEventListener('click', () => {
+      document.getElementById('settingsGitHubOverlay').style.display = 'none';
+    });
+    document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
+      SyncManager.syncToGitHub();
+    });
+
+    // File Import
+    document.getElementById('importBackupFile').addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        SyncManager.importJSON(e.target.files[0]);
       }
     });
 

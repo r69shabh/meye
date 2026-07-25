@@ -318,19 +318,44 @@
 
         </div>
 
-        <!-- Section: Data & Privacy -->
-        <div class="settings-section-label">Data & Privacy</div>
+        <!-- Section: Sync & Backup -->
+        <div class="settings-section-label">Sync & Backup</div>
         <div class="settings-section">
 
-          <div class="settings-row settings-row--toggle" id="settingsAutoBackup">
-            <div class="settings-icon-pill">
-              <iconify-icon icon="solar:cloud-upload-linear" width="22" height="22"></iconify-icon>
+          <div class="settings-row" id="settingsGitHubSync">
+            <div class="settings-icon-pill" style="color:#FFF; background:#333;">
+              <iconify-icon icon="mdi:github" width="22" height="22"></iconify-icon>
             </div>
-            <span class="settings-row-label">Auto Backup</span>
+            <span class="settings-row-label">GitHub Gist Sync</span>
             <div class="settings-row-right">
-              <div class="st-toggle" id="toggleAutoBackup">
-                <div class="st-toggle-knob"></div>
-              </div>
+              <span class="settings-value" id="sv-githubSyncStatus">Not Configured</span>
+              <iconify-icon icon="solar:alt-arrow-right-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+
+          <div class="settings-row" id="settingsExportBackup">
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:export-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Export JSON Backup</span>
+            <div class="settings-row-right">
+              <iconify-icon icon="solar:download-minimalistic-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
+            </div>
+          </div>
+
+          <div class="settings-row-sep"></div>
+          
+          <!-- Hidden file input for import -->
+          <input type="file" id="importBackupFile" accept=".json" style="display:none;" />
+          <div class="settings-row" id="settingsImportBackup">
+            <div class="settings-icon-pill">
+              <iconify-icon icon="solar:import-linear" width="22" height="22"></iconify-icon>
+            </div>
+            <span class="settings-row-label">Import JSON Backup</span>
+            <div class="settings-row-right">
+              <iconify-icon icon="solar:upload-minimalistic-linear" width="16" height="16" style="color: var(--text-tertiary);"></iconify-icon>
             </div>
           </div>
 
@@ -352,6 +377,20 @@
 
       <!-- Shared floating dropdown panel -->
       <div class="settings-dropdown" id="settingsDropdown" style="display:none;"></div>
+      
+      <!-- GitHub Sync overlay -->
+      <div class="settings-reset-confirm" id="settingsGitHubOverlay" style="display:none;">
+        <div class="settings-reset-sheet">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <p style="font-size:17px; font-weight:600; margin:0; color:var(--text-primary);">GitHub Sync</p>
+            <button id="btnGitHubSyncNow" style="display:none; background:var(--text-primary); color:var(--bg-primary); padding:6px 12px; border-radius:12px; border:none; font-weight:600; cursor:pointer;">Sync Now</button>
+          </div>
+          <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Paste a GitHub Personal Access Token (with 'gist' scope) to sync your data across devices securely.</p>
+          <input type="password" id="githubPatInput" placeholder="ghp_xxxxxxxxxxxx" style="width:100%; padding:12px; border-radius:12px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary); margin-bottom:24px; font-family:monospace;">
+          <button id="btnSaveGitHubPat" style="width:100%; padding:14px; background:var(--text-primary); color:var(--bg-primary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer; margin-bottom:8px;">Save Token</button>
+          <button id="btnCancelGitHubPat" style="width:100%; padding:14px; background:transparent; color:var(--text-secondary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer;">Cancel</button>
+        </div>
+      </div>
       <!-- Reset confirm overlay -->
       <div class="settings-reset-confirm" id="settingsResetConfirm" style="display:none;">
         <div class="settings-reset-sheet">
