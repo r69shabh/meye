@@ -1298,26 +1298,28 @@ class VoiceRecorder {
 
     this.recognition.onresult = (event) => {
       clearTimeout(this.stalledTimeout);
-      this.hintEl.style.display = 'none'; // hide hint once we get results
-      this.targetAmplitude = 0.7; // spike on each result
+      this.hintEl.style.display = 'none';
+      this.targetAmplitude = 0.7;
 
-      let interim = '';
-      let final   = this.finalText;
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
+      // Always rebuild from ALL results (index 0 → end), NOT from event.resultIndex.
+      // Android's SpeechRecognition re-delivers the entire accumulated transcript on
+      // every event, so appending from resultIndex causes massive duplication.
+      let finalText = '';
+      let interimText = '';
+      for (let i = 0; i < event.results.length; i++) {
         const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          final += t + ' ';
-          this.targetAmplitude = 0.3; // settle after final result
+          finalText += t + ' ';
+          this.targetAmplitude = 0.3;
         } else {
-          interim += t;
+          interimText += t;
         }
       }
 
-      this.finalText   = final;
-      this.interimText = interim;
-      this.finalEl.textContent   = final;
-      this.interimEl.textContent = interim;
+      this.finalText   = finalText;
+      this.interimText = interimText;
+      this.finalEl.textContent   = finalText;
+      this.interimEl.textContent = interimText;
       this.transcriptBox.scrollTop = this.transcriptBox.scrollHeight;
     };
 
