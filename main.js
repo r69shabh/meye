@@ -2274,6 +2274,26 @@ const SettingsView = {
       SyncManager.syncToGitHub();
     });
 
+    // Google Calendar Overlay
+    document.getElementById('btnStartGoogleCalLogin').addEventListener('click', () => {
+      if (!this.tokenClient) {
+        alert('Google API client is still loading. Please try again in a moment.');
+        return;
+      }
+      this.tokenClient.requestAccessToken({prompt: 'consent'});
+      document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
+    });
+    document.getElementById('btnCancelGoogleCal').addEventListener('click', () => {
+      document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
+      // Reset dropdown value back to none if canceled
+      if (this.prefs.calSync === 'google') {
+        this.prefs.calSync = 'none';
+        this.save();
+        const svEl = document.getElementById('sv-calSync');
+        if (svEl) svEl.textContent = 'None';
+      }
+    });
+
     // File Import
     document.getElementById('importBackupFile').addEventListener('change', (e) => {
       if (e.target.files && e.target.files[0]) {
@@ -2417,11 +2437,7 @@ const SettingsView = {
 
   handleCalSync(val) {
     if (val === 'google') {
-      if (!this.tokenClient) {
-        alert('Google API client is still loading. Please try again in a moment.');
-        return;
-      }
-      this.tokenClient.requestAccessToken({prompt: 'consent'});
+      document.getElementById('settingsGoogleCalOverlay').style.display = 'flex';
     }
   },
 
