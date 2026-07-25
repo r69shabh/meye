@@ -60,7 +60,8 @@ function getWeekDates(centerDate) {
 // ============================================
 const TourManager = {
   currentSlide: 0,
-  totalSlides: 4,
+  totalSlides: 6,
+  touchStartX: 0,
   
   init() {
     const isComplete = localStorage.getItem('meyeTourComplete');
@@ -75,8 +76,49 @@ const TourManager = {
     
     document.getElementById('btnSkipTour').addEventListener('click', () => this.finish());
     document.getElementById('btnTourNext').addEventListener('click', () => this.next());
+
+    // Swipe gestures
+    const slidesContainer = document.getElementById('tourSlides');
+    slidesContainer.addEventListener('touchstart', (e) => {
+      this.touchStartX = e.changedTouches[0].screenX;
+    }, {passive: true});
+
+    slidesContainer.addEventListener('touchend', (e) => {
+      const touchEndX = e.changedTouches[0].screenX;
+      const deltaX = this.touchStartX - touchEndX;
+      
+      if (deltaX > 50) {
+        this.next(); // swipe left -> next
+      } else if (deltaX < -50) {
+        this.prev(); // swipe right -> prev
+      }
+    }, {passive: true});
   },
   
+  prev() {
+    if (this.currentSlide <= 0) return;
+    
+    // Hide current
+    const currentEl = document.querySelector(`.tour-slide[data-slide="${this.currentSlide}"]`);
+    if (currentEl) {
+      currentEl.classList.remove('is-active');
+      currentEl.style.opacity = '0';
+      currentEl.style.transform = 'translateX(40px)';
+    }
+    
+    this.currentSlide--;
+    
+    // Show prev
+    const prevEl = document.querySelector(`.tour-slide[data-slide="${this.currentSlide}"]`);
+    if (prevEl) {
+      prevEl.classList.add('is-active');
+      prevEl.style.opacity = '1';
+      prevEl.style.transform = 'translateX(0)';
+    }
+    
+    this.updateUI();
+  },
+
   next() {
     if (this.currentSlide >= this.totalSlides - 1) {
       this.finish();
@@ -101,6 +143,10 @@ const TourManager = {
       nextEl.style.transform = 'translateX(0)';
     }
     
+    this.updateUI();
+  },
+
+  updateUI() {
     // Update button text
     const btn = document.getElementById('btnTourNext');
     if (this.currentSlide === this.totalSlides - 1) {
@@ -108,6 +154,16 @@ const TourManager = {
     } else {
       btn.textContent = 'Next';
     }
+
+    // Update dots
+    const dots = document.querySelectorAll('.tour-dot');
+    dots.forEach((dot, index) => {
+      if (index === this.currentSlide) {
+        dot.classList.add('is-active');
+      } else {
+        dot.classList.remove('is-active');
+      }
+    });
   },
   
   finish() {

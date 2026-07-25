@@ -381,11 +381,7 @@
 
     <!-- Onboarding Page (Tour) -->
     <div class="full-page-view" id="onboardingPage" style="z-index: 500; display: flex; flex-direction: column; background: var(--bg-primary);">
-      <!-- Top Bar -->
-      <div style="display: flex; justify-content: flex-end; padding: 24px; position: absolute; top: 0; left: 0; right: 0; z-index: 10;">
-        <button id="btnSkipTour" style="background: none; border: none; color: var(--text-secondary); font-size: 15px; font-weight: 500; cursor: pointer; padding: 8px 16px;">Skip</button>
-      </div>
-
+      
       <!-- Slides Container -->
       <div id="tourSlides" style="flex: 1; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;">
         
@@ -395,31 +391,119 @@
           <p style="font-size: 16px; color: var(--text-secondary); margin-top: 12px; font-weight: 400;">Your beautifully focused life.</p>
         </div>
 
-        <!-- Slide 2: Feed -->
+        <!-- Slide 2: Smart Voice -->
         <div class="tour-slide" data-slide="1" style="text-align: center; position: absolute; width: 100%; opacity: 0; transform: translateX(40px); transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);">
-          <iconify-icon icon="solar:hamburger-menu-linear" width="48" height="48" style="color: var(--text-primary); margin-bottom: 24px; opacity: 0.8;"></iconify-icon>
-          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Capture Everything</h2>
-          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Jot down notes, check off tasks, and view calendar events all in one seamless timeline.</p>
+          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Speak Your Mind</h2>
+          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Use intelligent voice mode to instantly capture thoughts. NLP automatically categorizes them for you.</p>
+          <div class="tour-mockup-wrapper">
+            <div class="tour-mockup-bar">
+              <span>"Remind me to call mom at 5pm"</span>
+              <div class="tour-mockup-mic">
+                <iconify-icon icon="solar:microphone-3-bold" width="18" height="18"></iconify-icon>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Slide 3: Heatmap -->
+        <!-- Slide 3: Notes -->
         <div class="tour-slide" data-slide="2" style="text-align: center; position: absolute; width: 100%; opacity: 0; transform: translateX(40px); transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);">
-          <iconify-icon icon="solar:widget-2-linear" width="48" height="48" style="color: var(--text-primary); margin-bottom: 24px; opacity: 0.8;"></iconify-icon>
-          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Track Your Life</h2>
-          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Watch your daily habits and routines grow in a beautiful yearly dot-matrix.</p>
+          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Effortless Capture</h2>
+          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Jot down fleeting thoughts with automatic tags and rich text.</p>
+          <div class="tour-mockup-wrapper">
+            <div class="card note-card" style="text-align: left; margin: 0;">
+              <div class="card-content">The apartment stopped being a place and the moment it became a choice you were making together.</div>
+              <div class="card-tags">
+                <span class="card-tag">Reflection</span>
+                <span class="card-tag">Moving Out</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- Slide 4: Make it Yours -->
+        <!-- Slide 4: To-Dos & Events -->
         <div class="tour-slide" data-slide="3" style="text-align: center; position: absolute; width: 100%; opacity: 0; transform: translateX(40px); transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);">
-          <iconify-icon icon="solar:palette-linear" width="48" height="48" style="color: var(--text-primary); margin-bottom: 24px; opacity: 0.8;"></iconify-icon>
-          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Make it Yours</h2>
-          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Customize the theme, accent colors, and layout exactly to your aesthetic.</p>
+          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Plan Your Day</h2>
+          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Stay on top of your schedule with actionable checklists and synced calendar events.</p>
+          <div class="tour-mockup-wrapper" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="card todo-card" style="text-align: left; margin: 0;">
+              <div class="card-meta">
+                <iconify-icon icon="solar:bell-linear" width="14" height="14"></iconify-icon>
+                <span>21:42</span>
+              </div>
+              <div class="card-content">
+                <div class="checkbox is-checked"><iconify-icon icon="solar:check-read-linear" width="16" height="16"></iconify-icon></div>
+                <span style="text-decoration: line-through; opacity: 0.5;">Read chapter 4 of the systems design book</span>
+              </div>
+            </div>
+            <div class="card calendar-card" style="text-align: left; margin: 0;">
+              <div class="card-meta">
+                <iconify-icon icon="solar:calendar-linear" width="14" height="14"></iconify-icon>
+                <span>10:00 - 10:30</span>
+              </div>
+              <div class="card-content">Coffee with Arjun</div>
+            </div>
+          </div>
         </div>
+
+        <!-- Slide 5: Routines -->
+        <div class="tour-slide" data-slide="4" style="text-align: center; position: absolute; width: 100%; opacity: 0; transform: translateX(40px); transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);">
+          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Build Habits</h2>
+          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Create recurring daily routines with sub-tasks to build consistency.</p>
+          <div class="tour-mockup-wrapper">
+            <div class="card routine-card" style="text-align: left; margin: 0;">
+              <div class="card-meta">
+                <iconify-icon icon="solar:refresh-circle-linear" width="14" height="14"></iconify-icon>
+                <span>Daily</span>
+              </div>
+              <div class="card-content" style="margin-bottom:12px;">Calisthenics — Pull day</div>
+              <div class="routine-items">
+                <div class="routine-item">
+                  <div class="checkbox"><iconify-icon icon="solar:check-read-linear" width="16" height="16"></iconify-icon></div>
+                  <span>Bent over row (3x15)</span>
+                </div>
+                <div class="routine-item">
+                  <div class="checkbox"><iconify-icon icon="solar:check-read-linear" width="16" height="16"></iconify-icon></div>
+                  <span>Inverted row (3x15)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slide 6: Heatmap -->
+        <div class="tour-slide" data-slide="5" style="text-align: center; position: absolute; width: 100%; opacity: 0; transform: translateX(40px); transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);">
+          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Track Consistency</h2>
+          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Watch your routines and activities grow in a beautiful yearly dot-matrix view.</p>
+          <div class="tour-mockup-wrapper">
+            <div class="card" style="padding: 20px;">
+              <h3 style="font-size:15px; font-weight:600; margin:0; text-align:left;">Calisthenics</h3>
+              <div class="tour-mockup-grid">
+                <div class="tour-mockup-dot"></div>
+                <div class="tour-mockup-dot level-1"></div>
+                <div class="tour-mockup-dot level-2"></div>
+                <div class="tour-mockup-dot level-3"></div>
+                <div class="tour-mockup-dot level-1"></div>
+                <div class="tour-mockup-dot"></div>
+                <div class="tour-mockup-dot"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
       </div>
 
       <!-- Bottom Bar (Nav) -->
-      <div style="padding: 40px 24px; display: flex; justify-content: center;">
-        <button id="btnTourNext" style="background: #fff; color: #000; border: none; padding: 14px 32px; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; transition: transform 0.2s var(--ease-out);">Take the Tour</button>
+      <div class="tour-nav-bar">
+        <button id="btnSkipTour" class="tour-btn-skip">Skip</button>
+        <div class="tour-dots" id="tourDots">
+          <div class="tour-dot is-active"></div>
+          <div class="tour-dot"></div>
+          <div class="tour-dot"></div>
+          <div class="tour-dot"></div>
+          <div class="tour-dot"></div>
+          <div class="tour-dot"></div>
+        </div>
+        <button id="btnTourNext" class="tour-btn-next">Next</button>
       </div>
     </div>
 

@@ -1916,3 +1916,110 @@ button {
 .hm-dot.done {
   background-color: #34C759;
 }
+
+/* ============================================
+   Tour UI Components
+   ============================================ */
+.tour-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.tour-dots {
+  display: flex;
+  gap: 8px;
+}
+
+.tour-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: all 0.3s var(--ease-out);
+}
+.tour-dot.is-active {
+  background: var(--text-primary);
+  transform: scale(1.2);
+}
+
+.tour-btn-skip {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 12px;
+  transition: color 0.2s;
+}
+.tour-btn-skip:hover { color: var(--text-primary); }
+
+.tour-btn-next {
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), opacity 0.2s;
+}
+.tour-btn-next:active { transform: scale(0.95); }
+
+/* Tour Mockups */
+.tour-mockup-wrapper {
+  margin: 32px auto 0;
+  width: 100%;
+  max-width: 320px;
+  pointer-events: none;
+  user-select: none;
+}
+.tour-mockup-bar {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 24px;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.tour-mockup-bar span {
+  color: var(--text-tertiary);
+  font-size: 15px;
+}
+.tour-mockup-mic {
+  background: var(--accent-primary);
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(255, 69, 58, 0.3);
+}
+
+.tour-mockup-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  justify-items: center;
+  max-width: 200px;
+  margin: 24px auto 0;
+}
+.tour-mockup-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+}
+.tour-mockup-dot.level-1 { background: rgba(255, 69, 58, 0.3); }
+.tour-mockup-dot.level-2 { background: rgba(255, 69, 58, 0.6); }
+.tour-mockup-dot.level-3 { background: rgba(255, 69, 58, 1.0); }
