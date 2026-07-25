@@ -2182,15 +2182,37 @@ const SyncManager = {
       stats: JSON.parse(localStorage.getItem('meyeStatsNew') || '{}'),
       prefs: JSON.parse(localStorage.getItem('meyePrefsV2') || '{}')
     };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const str = JSON.stringify(payload, null, 2);
+    const blob = new Blob([str], { type: 'application/json' });
+    const filename = `meye_backup_${new Date().toISOString().split('T')[0]}.json`;
+    
+    // Try Web Share API for mobile devices first
+    if (navigator.canShare) {
+      const file = new File([blob], filename, { type: 'application/json' });
+      if (navigator.canShare({ files: [file] })) {
+        navigator.share({
+          title: 'Meye Backup',
+          files: [file]
+        }).catch(err => {
+          console.error('Share failed', err);
+          this._fallbackDownload(blob, filename);
+        });
+        return;
+      }
+    }
+    
+    this._fallbackDownload(blob, filename);
+  },
+
+  _fallbackDownload(blob, filename) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `meye_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   },
 
   importJSON(file) {
@@ -2399,8 +2421,8 @@ const SettingsView = {
   },
 
   applyFontSize(size) {
-    const scale = { small: '14px', default: '16px', large: '18px' };
-    document.documentElement.style.setProperty('--font-base', scale[size] || '16px');
+    const scale = { small: '0.9', default: '1', large: '1.1' };
+    document.body.style.zoom = scale[size] || '1';
   },
 
   openDropdown(rowEl) {
