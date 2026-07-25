@@ -1256,8 +1256,7 @@ class VoiceRecorder {
       canvasCtx.fillStyle = isLight ? `rgba(0,0,0,1)` : `rgba(255,255,255,1)`;
 
       for (let i = 0; i < this.MAX_BARS; i++) {
-        const val  = this.waveHistory[i] ?? 0;
-        if (val === 0) continue; // Skip drawing to prevent dotted line at silence
+        const val  = this.waveHistory[i] ?? 0.02;
         const barH = Math.max(3, val * H * 0.9);
         const x    = i * step;
         const alpha = 0.3 + (i / this.MAX_BARS) * 0.7; // fade in from left
