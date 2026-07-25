@@ -1000,6 +1000,7 @@ const ExpandedCardView = {
       `;
     }
     else if (c.type === 'calendar') {
+      html = `
         <div class="exp-cal-view">
           <textarea class="exp-todo-title" id="editContent" rows="1" oninput="this.style.height='';this.style.height=this.scrollHeight+'px'" placeholder="Event...">${c.content}</textarea>
           <div class="exp-todo-field" id="calDateBtn">
@@ -1023,6 +1024,7 @@ const ExpandedCardView = {
             <input class="exp-todo-field-text" type="url" id="editLink" placeholder="Add meeting link" value="${c.meetLink || ''}" style="background:transparent; border:none; outline:none; font-family:inherit;">
           </div>
         </div>
+      `;
     }
     else if (c.type === 'routine') {
       this.dateEl.style.display = 'none';
