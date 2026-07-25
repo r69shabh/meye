@@ -303,7 +303,7 @@ function renderDateStrip(weekDates, selectedDate, cardsData) {
   track.innerHTML = weekDates.map(date => {
     const key = formatDateKey(date);
     const isSelected = key === selectedKey;
-    const hasCards = datesWithCards.has(key) || hasDaily;
+    const isToday = key === formatDateKey(new Date());
     const dayIndex = date.getDay();
     // Use Mon=M, Tue=T, Wed=W, Thu=T, Fri=F, Sat=S, Sun=S
     const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -313,7 +313,7 @@ function renderDateStrip(weekDates, selectedDate, cardsData) {
            data-date="${key}" role="button" tabindex="0">
         <span class="date-day">${dayLabels[dayIndex]}</span>
         <span class="date-num">${date.getDate()}</span>
-        <span class="date-dot ${hasCards ? '' : 'date-dot--empty'}"></span>
+        <span class="date-dot" style="opacity: ${isToday ? '1' : '0'}; background: var(--text-primary);"></span>
       </div>
     `;
   }).join('');
@@ -437,6 +437,20 @@ let allCards = loadCards();
 function init() {
   // Set header date
   document.getElementById('headerDate').textContent = formatDate(currentDate);
+  const headerPicker = document.getElementById('headerDatePicker');
+  if (headerPicker) {
+    headerPicker.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val) {
+        const parts = val.split('-');
+        selectedDate = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+        document.getElementById('headerDate').textContent = formatDate(selectedDate);
+        renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
+        renderCardFeed(allCards, selectedDate, currentDate);
+        bindDateStripEvents();
+      }
+    });
+  }
 
   // Render date strip
   const weekDates = getWeekDates(selectedDate);
@@ -2415,7 +2429,7 @@ const SettingsView = {
 
   initGoogleAuth() {
     // ⚠️ IMPORTANT: Replace with your actual Google Cloud OAuth Client ID!
-    const CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
+    const CLIENT_ID = '231629020948-p2pspiejpqv582bm3pok4uhq4lodduvj.apps.googleusercontent.com';
     const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
     
     const checkGIS = setInterval(() => {
