@@ -439,6 +439,16 @@ function init() {
   document.getElementById('headerDate').textContent = formatDate(currentDate);
   const headerPicker = document.getElementById('headerDatePicker');
   if (headerPicker) {
+    document.getElementById('headerDateWrapper').addEventListener('click', () => {
+      try {
+        headerPicker.showPicker();
+      } catch (e) {
+        // Fallback for browsers that don't support showPicker (though most modern ones do)
+        headerPicker.focus();
+        headerPicker.click();
+      }
+    });
+
     headerPicker.addEventListener('change', (e) => {
       const val = e.target.value;
       if (val) {
