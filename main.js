@@ -1615,9 +1615,9 @@ const SmartParser = {
 
   INTENT_PREFIX: /^(hey[,\s]*|hi[,\s]*)?(please\s+)?(can you\s+)?(remind me (to|that|about)?|don'?t forget (to)?|note (that|to self[:\s]*)?|i('ve| have)?\s+(to|got to|gotta|need to|should)|we\s+(need|should|have) to|remember (to)?|make a note|add (a )?(reminder|task|to[-\s]?do)[:\s]*|set (a )?reminder (to)?|i want to|i('?d| would) like to|let'?s|note[:\s]+)\s*/i,
 
-  // Time patterns — handles "8pm", "8:30 AM", "around 8", "noon", "midnight", "from 2 to 3", "2-3pm", "8:00 p.m.", "8 o'clock"
-  TIME_RE:       /(?:(around\s+|at\s+|by\s+)(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?|(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock))|\b(noon|midnight)\b/i,
-  TIME_RANGE_RE: /from\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?\s+to\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/i,
+  // Time patterns
+  TIME_RE:       /(?:(around\s+|at\s+|by\s+)(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?|(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock))|\b(noon|midnight)\b/i,
+  TIME_RANGE_RE: /from\s+(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?\s+to\s+(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/i,
 
   // Date patterns
   DATE_RELATIVE: /\b(today|tonight|tomorrow|tmrw|tmr|day after tomorrow)\b/i,
@@ -1640,10 +1640,10 @@ const SmartParser = {
 
   // Temporal phrases to strip COMPLETELY from content
   TEMPORAL_STRIP: [
-    /(?:around\s+|at\s+|by\s+)(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/gi,
-    /(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)/gi,
+    /(?:around\s+|at\s+|by\s+)(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/gi,
+    /(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)/gi,
     /\b(noon|midnight)\b/gi,
-    /from\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?\s+to\s+(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/gi,
+    /from\s+(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?\s+to\s+(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?/gi,
     /\b(in the|this|every)\s+(morning|afternoon|evening|night)\b/gi,
     /\b(tomorrow|tmrw|tmr|today|tonight|yesterday|day after tomorrow)\b/gi,
     /\b(next\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi,
@@ -1796,17 +1796,20 @@ const SmartParser = {
     const explicitRoutine = /\b(every\s+(day|morning|evening|night|week|weekday)|daily|each\s+(day|morning|evening)|routine|habit)\b/.test(lowerRaw);
     const explicitTodo = /\b(remind|forget|need to|have to|got to|gotta|task|to-do|reminder|remember to)\b/.test(lowerRaw);
     const explicitNote = /\b(note to self|make a note|note:|journal|just thinking|was thinking|i noticed|log)\b/.test(lowerRaw);
+    const isHabitKeyword = this.HABIT_KEYWORDS_RE.test(text);
 
     if (explicitRoutine) {
       type = 'routine';
     } else if (this.CALENDAR_RE.test(text)) {
       type = 'calendar';
-    } else if (explicitTodo || this.TODO_RE.test(text)) {
+    } else if (explicitTodo) {
       type = 'todo';
     } else if (explicitNote || this.NOTE_SIGNAL_RE.test(lower)) {
       type = 'note';
-    } else if (this.HABIT_KEYWORDS_RE.test(text)) {
+    } else if (isHabitKeyword) {
       type = 'routine';
+    } else if (this.TODO_RE.test(text)) {
+      type = 'todo';
     }
 
     if (type === 'note' && reminderTime) type = 'todo';
