@@ -385,9 +385,20 @@
             <p style="font-size:17px; font-weight:600; margin:0; color:var(--text-primary);">GitHub Sync</p>
             <button id="btnGitHubSyncNow" style="display:none; background:var(--text-primary); color:var(--bg-primary); padding:6px 12px; border-radius:12px; border:none; font-weight:600; cursor:pointer;">Sync Now</button>
           </div>
-          <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Paste a GitHub Personal Access Token (with 'gist' scope) to sync your data across devices securely.</p>
-          <input type="password" id="githubPatInput" placeholder="ghp_xxxxxxxxxxxx" style="width:100%; padding:12px; border-radius:12px; border:1px solid var(--border-color); background:var(--bg-secondary); color:var(--text-primary); margin-bottom:24px; font-family:monospace;">
-          <button id="btnSaveGitHubPat" style="width:100%; padding:14px; background:var(--text-primary); color:var(--bg-primary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer; margin-bottom:8px;">Save Token</button>
+          <p style="font-size:14px; color:var(--text-secondary); margin-bottom:16px;">Securely sync your tasks and routines across all devices using GitHub Gists. Zero servers, maximum privacy.</p>
+          
+          <div id="githubLoginInitial">
+            <p style="font-size:13px; color:var(--text-tertiary); margin-bottom:16px;">Click below to generate a secure login code.</p>
+            <button class="btn-primary" id="btnStartGitHubLogin" style="width:100%; margin-bottom:12px; padding:14px; background:var(--text-primary); color:var(--bg-primary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer;">Start GitHub Login</button>
+          </div>
+
+          <div id="githubDeviceCodeArea" style="display:none; text-align:center; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 12px; margin-bottom: 16px;">
+            <p style="font-size:14px; margin: 0 0 8px 0;">1. Open <a href="https://github.com/login/device" target="_blank" style="color:var(--accent-primary); text-decoration:none; font-weight:600;">github.com/login/device</a></p>
+            <p style="font-size:14px; margin: 0 0 8px 0;">2. Enter this code:</p>
+            <h1 id="githubUserCode" style="font-family: monospace; font-size: 32px; letter-spacing: 4px; margin: 8px 0; color: var(--text-primary);">----</h1>
+            <p style="font-size:12px; color:var(--text-tertiary); margin: 0;">Waiting for authorization... <span class="spinner" style="display:inline-block; margin-left:4px;">⏳</span></p>
+          </div>
+
           <button id="btnCancelGitHubPat" style="width:100%; padding:14px; background:transparent; color:var(--text-secondary); border:none; border-radius:12px; font-size:17px; font-weight:600; cursor:pointer;">Cancel</button>
         </div>
       </div>
@@ -528,6 +539,18 @@
             </div>
           </div>
         </div>
+        <!-- Slide 7: Backup/Sync -->
+        <div class="tour-slide" data-slide="6" style="text-align: center; position: absolute; width: 100%; opacity: 0; transform: translateX(40px); transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);">
+          <h2 style="font-size: 28px; font-weight: 600; color: var(--text-primary); margin: 0 0 12px 0;">Your Data, Anywhere</h2>
+          <p style="font-size: 15px; color: var(--text-secondary); max-width: 280px; margin: 0 auto; line-height: 1.5;">Completely local, lightning fast. Sync it across all your devices using GitHub Gists.</p>
+          <div class="tour-mockup-wrapper">
+            <div class="card" style="padding: 24px; text-align: center; border: 1px solid rgba(255, 255, 255, 0.1);">
+              <iconify-icon icon="mdi:github" width="48" height="48" style="color: #fff; margin-bottom: 16px;"></iconify-icon>
+              <h3 style="font-size:16px; font-weight:600; margin:0 0 8px 0; color:var(--text-primary);">Bring Your Own Cloud</h3>
+              <p style="font-size:13px; color:var(--text-tertiary); margin:0;">Zero servers, maximum privacy.</p>
+            </div>
+          </div>
+        </div>
         
       </div>
 
@@ -535,7 +558,8 @@
       <div class="tour-nav-bar">
         <button id="btnSkipTour" class="tour-btn-skip">Skip</button>
         <div class="tour-dots" id="tourDots">
-          <div class="tour-dot is-active"></div>
+          <div class="tour-dot"></div>
+          <div class="tour-dot"></div>
           <div class="tour-dot"></div>
           <div class="tour-dot"></div>
           <div class="tour-dot"></div>

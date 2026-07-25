@@ -705,9 +705,12 @@ const ExpandedCardView = {
     }
     else if (c.type === 'todo') {
       this.dateEl.style.display = 'none';
-      const dPart = c.date.split('-');
-      const d = new Date(dPart[0], dPart[1]-1, dPart[2]);
-      const dateStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      let dateStr = 'Anytime';
+      if (c.date) {
+        const dPart = c.date.split('-');
+        const d = new Date(dPart[0], dPart[1]-1, dPart[2]);
+        dateStr = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+      }
       let timeDisplay = '+ Add time';
       if (c.reminderTime) {
         const [hh, mm] = c.reminderTime.split(':').map(Number);
@@ -1969,6 +1972,12 @@ const NotificationEngine = {
 const SyncManager = {
   gistId: null,
   pat: null,
+  pollInterval: null,
+
+  // ⚠️ IMPORTANT: Replace this with your GitHub OAuth App Client ID!
+  // To get one: GitHub Settings -> Developer Settings -> OAuth Apps -> New OAuth App
+  // Enable "Device Flow" in the OAuth App settings!
+  CLIENT_ID: 'Iv23lib6lB3381BszT3H', // I've provided a placeholder, replace with your own.
 
   init() {
     const savedState = JSON.parse(localStorage.getItem('meyeSyncState') || '{}');
@@ -1989,11 +1998,75 @@ const SyncManager = {
     }
   },
 
-  savePAT(pat) {
-    this.pat = pat;
-    localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
-    this.updateStatusUI();
-    this.syncToGitHub();
+  async startGitHubLogin() {
+    document.getElementById('githubLoginInitial').style.display = 'none';
+    const codeArea = document.getElementById('githubDeviceCodeArea');
+    codeArea.style.display = 'block';
+    const userCodeEl = document.getElementById('githubUserCode');
+    userCodeEl.textContent = 'Loading...';
+
+    try {
+      // 1. Request Device Code
+      const res = await fetch(`https://github.com/login/device/code?client_id=${this.CLIENT_ID}&scope=gist`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
+      });
+      const data = await res.json();
+      
+      if (data.error) {
+        userCodeEl.textContent = 'Error';
+        alert('GitHub API Error: ' + data.error_description);
+        return;
+      }
+
+      userCodeEl.textContent = data.user_code;
+      
+      // 2. Start Polling
+      this.pollForToken(data.device_code, data.interval || 5);
+      
+    } catch (err) {
+      console.error(err);
+      userCodeEl.textContent = 'Error';
+    }
+  },
+
+  pollForToken(deviceCode, intervalSec) {
+    if (this.pollInterval) clearInterval(this.pollInterval);
+    
+    this.pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`https://github.com/login/oauth/access_token?client_id=${this.CLIENT_ID}&device_code=${deviceCode}&grant_type=urn:ietf:params:oauth:grant-type:device_code`, {
+          method: 'POST',
+          headers: { 'Accept': 'application/json' }
+        });
+        const data = await res.json();
+
+        if (data.access_token) {
+          clearInterval(this.pollInterval);
+          this.pat = data.access_token;
+          localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
+          
+          document.getElementById('settingsGitHubOverlay').style.display = 'none';
+          this.updateStatusUI();
+          this.syncToGitHub();
+          alert("GitHub Login Successful!");
+        } else if (data.error !== 'authorization_pending') {
+          // If expired or other error
+          clearInterval(this.pollInterval);
+          alert('Login failed or expired. Please try again.');
+          document.getElementById('settingsGitHubOverlay').style.display = 'none';
+        }
+      } catch (err) {
+        console.error("Polling error", err);
+      }
+    }, intervalSec * 1000);
+  },
+
+  cancelLogin() {
+    if (this.pollInterval) clearInterval(this.pollInterval);
+    document.getElementById('githubLoginInitial').style.display = 'block';
+    document.getElementById('githubDeviceCodeArea').style.display = 'none';
+    document.getElementById('settingsGitHubOverlay').style.display = 'none';
   },
 
   async syncToGitHub() {
@@ -2163,11 +2236,8 @@ const SettingsView = {
         return;
       }
 
-      // Sync Options
       if (e.target.closest('#settingsGitHubSync')) {
         document.getElementById('settingsGitHubOverlay').style.display = 'flex';
-        const input = document.getElementById('githubPatInput');
-        if (SyncManager.pat) input.value = SyncManager.pat;
         return;
       }
       if (e.target.closest('#settingsExportBackup')) {
@@ -2193,14 +2263,12 @@ const SettingsView = {
       }
     });
 
-    // GitHub PAT Overlay
-    document.getElementById('btnSaveGitHubPat').addEventListener('click', () => {
-      const pat = document.getElementById('githubPatInput').value.trim();
-      SyncManager.savePAT(pat);
-      document.getElementById('settingsGitHubOverlay').style.display = 'none';
+    // GitHub Device Flow Overlay
+    document.getElementById('btnStartGitHubLogin').addEventListener('click', () => {
+      SyncManager.startGitHubLogin();
     });
     document.getElementById('btnCancelGitHubPat').addEventListener('click', () => {
-      document.getElementById('settingsGitHubOverlay').style.display = 'none';
+      SyncManager.cancelLogin();
     });
     document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
       SyncManager.syncToGitHub();
