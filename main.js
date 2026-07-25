@@ -431,10 +431,7 @@ const TourManager = {
 
 // --- Mock Data ---
 
-function getMockCards() {
-  return [];
-}
-
+// Mock cards removed
 // --- Rendering ---
 
 function renderDateStrip(weekDates, selectedDate, cardsData) {
@@ -565,7 +562,7 @@ function loadCards() {
   if (data) {
     try { return JSON.parse(data); } catch(e) {}
   }
-  return getMockCards();
+  return [];
 }
 
 function syncAndSave() {
@@ -2715,19 +2712,7 @@ const StatsManager = {
       localStorage.setItem('meyeStatsNew', JSON.stringify(this.data));
     }
 
-    // Inject demo data if completely empty
-    if (Object.keys(this.data).length === 0) {
-      this.data['Calisthenics'] = {};
-      const today = new Date();
-      for (let i = 0; i < 365; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        if (Math.random() > 0.6) {
-          this.data['Calisthenics'][formatDateKey(d)] = true;
-        }
-      }
-      localStorage.setItem('meyeStatsNew', JSON.stringify(this.data));
-    }
+    // Removed demo data injection
   },
 
   logCompletion(taskName, isDone) {
