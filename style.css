@@ -120,6 +120,7 @@ button {
   z-index: 10;
   pointer-events: none;
   background: transparent;
+  overflow: hidden;
 }
 .app-container--side > .app-side-inner {
   position: absolute;
@@ -153,12 +154,14 @@ button {
     left: auto;
     transform: none;
     aspect-ratio: auto;
-    height: auto;
+    height: min(98vh, 98dvh);
     width: 0;
     margin-left: 0;
     opacity: 0;
     pointer-events: none;
     background: var(--bg-primary);
+    border-radius: 24px;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 25px 60px rgba(0, 0, 0, 0.5);
     transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), margin-left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s ease-out;
   }
   
