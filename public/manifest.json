@@ -8,9 +8,9 @@
   "description": "Personal productivity — to-do, calendar, notes",
   "icons": [
     {
-      "src": "/icon.jpg",
+      "src": "/icon.png",
       "sizes": "192x192 512x512 1024x1024",
-      "type": "image/jpeg",
+      "type": "image/png",
       "purpose": "any"
     }
   ]
