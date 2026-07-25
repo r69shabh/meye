@@ -1148,21 +1148,21 @@ class VoiceRecorder {
     this.transcriptBox = document.getElementById('transcriptBox');
     this.reviewBody  = document.getElementById('reviewBody');
 
-    this.ctx         = null;   // AudioContext
-    this.analyser    = null;
-    this.source      = null;
-    this.stream      = null;
     this.animFrame   = null;
     this.recognition = null;
     this.timerInterval = null;
+    this.stalledTimeout = null;
 
     this.seconds     = 0;
     this.finalText   = '';
+    this.interimText = '';
     this.paused      = false;
 
-    // Canvas scrolling waveform state
-    this.waveHistory = [];   // array of amplitude values (0-1)
-    this.MAX_BARS    = 80;   // number of bars visible at once
+    // Synthetic waveform state — driven by speech events, not getUserMedia
+    this.waveHistory    = [];   // array of amplitude values (0-1)
+    this.MAX_BARS       = 80;
+    this.targetAmplitude = 0.02; // resting level
+    this.currentAmplitude = 0.02;
 
     this._bindButtons();
   }
@@ -1185,9 +1185,12 @@ class VoiceRecorder {
     this.seconds = 0;
     this.paused = false;
     this.waveHistory = [];
+    this.targetAmplitude = 0.02;
+    this.currentAmplitude = 0.02;
     this.finalEl.textContent = '';
     this.interimEl.textContent = '';
     this.hintEl.style.display = '';
+    this.hintEl.textContent = 'Start speaking...';
     this.timerEl.textContent = '0:00';
 
     // Size canvas
@@ -1195,53 +1198,32 @@ class VoiceRecorder {
     this.canvas.width  = wrapper.clientWidth;
     this.canvas.height = 70;
 
-    // Start mic
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      this._startAudio();
-      this._startSpeech();
-      this._startTimer();
-    } catch(e) {
-      this.hintEl.textContent = 'Microphone access denied.';
-      console.warn('Mic error', e);
-    }
-  }
-
-  _startAudio() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-    this.analyser = this.ctx.createAnalyser();
-    this.analyser.fftSize = 256;
-    this.analyser.smoothingTimeConstant = 0.75;
-    this.source = this.ctx.createMediaStreamSource(this.stream);
-    this.source.connect(this.analyser);
+    // Start synthetic waveform animation (no getUserMedia needed)
     this._drawWave();
+    // Start speech recognition — it gets exclusive mic access
+    this._startSpeech();
+    this._startTimer();
   }
 
   _drawWave() {
     const canvasCtx = this.canvas.getContext('2d');
     const W = this.canvas.width;
     const H = this.canvas.height;
-    const data = new Uint8Array(this.analyser.frequencyBinCount);
 
     const draw = () => {
       this.animFrame = requestAnimationFrame(draw);
-      this.analyser.getByteFrequencyData(data);
 
-      // Compute RMS amplitude from low-mid frequencies (exclude ultra-highs)
-      let sum = 0;
-      const slice = Math.floor(data.length * 0.6);
-      for(let i=0; i<slice; i++){
-        sum += (data[i] / 255.0) * (data[i] / 255.0);
+      // Smoothly interpolate currentAmplitude toward targetAmplitude
+      this.currentAmplitude += (this.targetAmplitude - this.currentAmplitude) * 0.15;
+
+      // Add natural jitter when sound is active
+      let val = this.currentAmplitude;
+      if (val > 0.05) {
+        val = val + (Math.random() - 0.5) * val * 0.8;
+        val = Math.max(0.02, Math.min(1.0, val));
       }
-      let rms = Math.sqrt(sum / slice);
-      // Amplify and remove aggressive noise gate
-      rms = Math.min(1.0, rms * 2.5);
-      if (rms < 0.02) rms = 0; 
-      
-      this.waveHistory.push(rms);
+
+      this.waveHistory.push(val);
       if (this.waveHistory.length > this.MAX_BARS) {
         this.waveHistory.shift();
       }
@@ -1256,10 +1238,10 @@ class VoiceRecorder {
       canvasCtx.fillStyle = isLight ? `rgba(0,0,0,1)` : `rgba(255,255,255,1)`;
 
       for (let i = 0; i < this.MAX_BARS; i++) {
-        const val  = this.waveHistory[i] ?? 0.02;
-        const barH = Math.max(3, val * H * 0.9);
-        const x    = i * step;
-        const alpha = 0.3 + (i / this.MAX_BARS) * 0.7; // fade in from left
+        const v     = this.waveHistory[i] ?? 0.02;
+        const barH  = Math.max(3, v * H * 0.9);
+        const x     = i * step;
+        const alpha = 0.3 + (i / this.MAX_BARS) * 0.7;
 
         canvasCtx.globalAlpha = alpha;
         canvasCtx.beginPath();
@@ -1287,20 +1269,37 @@ class VoiceRecorder {
     this.recognition.interimResults  = true;
     this.recognition.lang            = 'en-US';
 
-    // Timeout for stuck recognition
+    // Timeout: if no audio starts after 10s, prompt the user
     this.stalledTimeout = setTimeout(() => {
-      if (this.hintEl.style.display !== 'none' && !this.interimText && !this.finalText) {
-        this.hintEl.textContent = 'Speech taking too long. Check mic permissions or tap to restart.';
+      if (!this.interimText && !this.finalText) {
+        this.hintEl.style.display = '';
+        this.hintEl.textContent = 'Check microphone permissions, then tap mic again.';
       }
     }, 10000);
 
-    this.recognition.onaudiostart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Listening (mic active)...'; };
-    this.recognition.onsoundstart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Hearing sound...'; };
-    this.recognition.onspeechstart = () => { if(this.hintEl.style.display !== 'none') this.hintEl.textContent = 'Speech detected, transcribing...'; };
+    // Drive waveform amplitude from speech events
+    this.recognition.onaudiostart  = () => {
+      this.hintEl.style.display = '';
+      this.hintEl.textContent = 'Listening...';
+      this.targetAmplitude = 0.04; // slight lift on audio start
+    };
+    this.recognition.onsoundstart  = () => {
+      this.targetAmplitude = 0.35; // medium pulse when sound detected
+    };
+    this.recognition.onspeechstart = () => {
+      this.targetAmplitude = 0.55; // bigger pulse when speech detected
+    };
+    this.recognition.onsoundend    = () => {
+      this.targetAmplitude = 0.04; // calm down when sound stops
+    };
+    this.recognition.onspeechend   = () => {
+      this.targetAmplitude = 0.02; // back to resting
+    };
 
     this.recognition.onresult = (event) => {
       clearTimeout(this.stalledTimeout);
-      if (this.hintEl.style.display !== 'none') this.hintEl.style.display = 'none';
+      this.hintEl.style.display = 'none'; // hide hint once we get results
+      this.targetAmplitude = 0.7; // spike on each result
 
       let interim = '';
       let final   = this.finalText;
@@ -1309,29 +1308,29 @@ class VoiceRecorder {
         const t = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           final += t + ' ';
+          this.targetAmplitude = 0.3; // settle after final result
         } else {
           interim += t;
         }
       }
 
-      this.finalText = final;
+      this.finalText   = final;
       this.interimText = interim;
-
-      this.finalEl.textContent  = final;
+      this.finalEl.textContent   = final;
       this.interimEl.textContent = interim;
-
-      // Auto scroll
       this.transcriptBox.scrollTop = this.transcriptBox.scrollHeight;
     };
 
     this.recognition.onerror = (e) => {
       clearTimeout(this.stalledTimeout);
-      if (e.error === 'no-speech') return; // ignore silence
-      this.hintEl.textContent = 'Mic Error: ' + e.error;
-      console.warn('Speech error', e.error);
+      this.targetAmplitude = 0.02;
+      if (e.error === 'no-speech') return; // ignore brief silence
+      this.hintEl.style.display = '';
+      this.hintEl.textContent = 'Mic Error: ' + e.error + '. Retrying...';
+      console.warn('SpeechRecognition error', e.error);
     };
 
-    // Auto-restart when browser cuts off (Chrome stops after ~60s of silence)
+    // Auto-restart (Chrome stops recognition periodically)
     this.recognition.onend = () => {
       if (!this.paused && this.overlay.classList.contains('is-active')) {
         try { this.recognition.start(); } catch(_) {}
@@ -1342,7 +1341,8 @@ class VoiceRecorder {
       this.recognition.start();
     } catch(e) {
       clearTimeout(this.stalledTimeout);
-      this.hintEl.textContent = 'Could not start speech recognition. Tap microphone again.';
+      this.hintEl.style.display = '';
+      this.hintEl.textContent = 'Could not start speech recognition. Reload and try again.';
       console.error('Failed to start SpeechRecognition', e);
     }
   }
@@ -1401,10 +1401,9 @@ class VoiceRecorder {
   _stopAll() {
     cancelAnimationFrame(this.animFrame);
     clearInterval(this.timerInterval);
+    clearTimeout(this.stalledTimeout);
+    this.targetAmplitude = 0.02;
     try { this.recognition?.stop(); } catch(_) {}
-    try { this.source?.disconnect(); } catch(_) {}
-    try { this.ctx?.close(); } catch(_) {}
-    this.stream?.getTracks().forEach(t => t.stop());
   }
 
   _showReview(parsed) {
