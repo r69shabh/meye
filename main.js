@@ -305,7 +305,7 @@ function getWeekDates(centerDate) {
 // ============================================
 const TourManager = {
   currentSlide: 0,
-  totalSlides: 6,
+  totalSlides: 9,
   touchStartX: 0,
   
   init() {
@@ -328,6 +328,28 @@ const TourManager = {
     document.getElementById('btnTourNext').addEventListener('click', () => {
       this.next();
     });
+
+    const btnGoogle = document.getElementById('btnTourGoogleSync');
+    if (btnGoogle) {
+      btnGoogle.addEventListener('click', () => {
+        document.getElementById('settingsGoogleCalOverlay').style.display = 'flex';
+      });
+    }
+
+    const btnGitHub = document.getElementById('btnTourGitHubSync');
+    if (btnGitHub) {
+      btnGitHub.addEventListener('click', () => {
+        document.getElementById('settingsGitHubOverlay').style.display = 'flex';
+      });
+    }
+
+    const btnFinish = document.getElementById('btnTourFinish');
+    if (btnFinish) {
+      btnFinish.addEventListener('click', () => {
+        this.finish();
+        NotificationManager.init();
+      });
+    }
 
     // Swipe gestures
     const slidesContainer = document.getElementById('tourSlides');
@@ -2175,6 +2197,10 @@ const SyncManager = {
     this.gistId = savedState.gistId || null;
     this.pat = savedState.pat || null;
     this.updateStatusUI();
+
+    if (typeof SettingsView !== 'undefined' && SettingsView.prefs.calSync === 'google') {
+      this.fetchGoogleEvents();
+    }
   },
 
   updateStatusUI() {
@@ -2393,6 +2419,74 @@ const SyncManager = {
       }
     };
     reader.readAsText(file);
+  },
+
+  async fetchGoogleEvents() {
+    const token = localStorage.getItem('meyeGCalToken');
+    if (!token) return;
+    try {
+      const startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}&singleEvents=true&orderBy=startTime`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (data.error) {
+        if (data.error.code === 401) {
+          localStorage.removeItem('meyeGCalToken');
+          if (typeof SettingsView !== 'undefined' && SettingsView.prefs.calSync === 'google') {
+            SettingsView.prefs.calSync = 'none';
+            SettingsView.save();
+            SettingsView.applyAll();
+          }
+        }
+        console.error("GCal fetch error", data.error);
+        return;
+      }
+      
+      const todayKey = formatDateKey(new Date());
+      allCards = allCards.filter(c => !(c.type === 'calendar' && c.date === todayKey && c.source === 'google'));
+      
+      if (data.items) {
+        data.items.forEach(ev => {
+          if (ev.status === 'cancelled') return;
+          const summary = ev.summary || 'Busy';
+          let timeStr = '';
+          if (ev.start && ev.start.dateTime) {
+            const startDate = new Date(ev.start.dateTime);
+            const endDate = new Date(ev.end.dateTime);
+            const formatTime = (d) => d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            timeStr = `${formatTime(startDate)} - ${formatTime(endDate)}`;
+          } else {
+            timeStr = 'All Day';
+          }
+          
+          allCards.push({
+            id: 'gcal_' + ev.id,
+            type: 'calendar',
+            date: todayKey,
+            content: summary,
+            eventTime: timeStr,
+            tags: ['Google Calendar'],
+            extraTags: 0,
+            source: 'google',
+            created: Date.now()
+          });
+        });
+      }
+      
+      syncAndSave();
+      if (typeof renderCardFeed !== 'undefined' && typeof selectedDate !== 'undefined') {
+        renderCardFeed(allCards, selectedDate, currentDate);
+      }
+    } catch (e) {
+      console.error("Failed to fetch Google Calendar events", e);
+    }
   }
 };
 
@@ -2657,7 +2751,9 @@ const SettingsView = {
               this.prefs.calSync = 'google';
               this.save();
               this.applyAll();
-              alert('Successfully linked Google Calendar! Events can now be fetched.');
+              if (typeof SyncManager !== 'undefined') {
+                SyncManager.fetchGoogleEvents();
+              }
             }
           },
         });
