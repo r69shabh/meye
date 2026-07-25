@@ -56,66 +56,68 @@ function getWeekDates(centerDate) {
 }
 
 // ============================================
-// Auth & Onboarding Manager
+// Tour / Onboarding Manager
 // ============================================
-const AuthManager = {
-  user: null,
+const TourManager = {
+  currentSlide: 0,
+  totalSlides: 4,
+  
   init() {
-    this.user = JSON.parse(localStorage.getItem('meyeUser') || 'null');
+    const isComplete = localStorage.getItem('meyeTourComplete');
     const onboarding = document.getElementById('onboardingPage');
     
-    if (!this.user) {
-      onboarding.classList.add('is-active');
-      this.initGoogleAuth();
-    } else {
+    if (isComplete === 'true') {
       onboarding.classList.remove('is-active');
+      return;
     }
-  },
-  
-  initGoogleAuth() {
-    // ⚠️ IMPORTANT: Replace with your actual Google Cloud OAuth Client ID!
-    const CLIENT_ID = 'YOUR_CLIENT_ID_HERE.apps.googleusercontent.com';
     
-    const checkGIS = setInterval(() => {
-      if (window.google && window.google.accounts) {
-        clearInterval(checkGIS);
-        google.accounts.id.initialize({
-          client_id: CLIENT_ID,
-          callback: this.handleCredentialResponse.bind(this)
-        });
-        
-        const btn = document.getElementById('customGoogleBtn');
-        if (btn) {
-          btn.style.display = 'flex';
-          btn.addEventListener('click', () => {
-            google.accounts.id.prompt();
-          });
-        }
-      }
-    }, 500);
+    onboarding.classList.add('is-active');
+    
+    document.getElementById('btnSkipTour').addEventListener('click', () => this.finish());
+    document.getElementById('btnTourNext').addEventListener('click', () => this.next());
   },
-
-  handleCredentialResponse(response) {
-    try {
-      // Decode JWT payload
-      const payload = JSON.parse(atob(response.credential.split('.')[1]));
-      this.user = {
-        name: payload.name,
-        email: payload.email,
-        picture: payload.picture
-      };
-      localStorage.setItem('meyeUser', JSON.stringify(this.user));
-      document.getElementById('onboardingPage').classList.remove('is-active');
-    } catch (e) {
-      console.error('Error decoding credential:', e);
+  
+  next() {
+    if (this.currentSlide >= this.totalSlides - 1) {
+      this.finish();
+      return;
+    }
+    
+    // Hide current
+    const currentEl = document.querySelector(`.tour-slide[data-slide="${this.currentSlide}"]`);
+    if (currentEl) {
+      currentEl.classList.remove('is-active');
+      currentEl.style.opacity = '0';
+      currentEl.style.transform = 'translateX(-40px)';
+    }
+    
+    this.currentSlide++;
+    
+    // Show next
+    const nextEl = document.querySelector(`.tour-slide[data-slide="${this.currentSlide}"]`);
+    if (nextEl) {
+      nextEl.classList.add('is-active');
+      nextEl.style.opacity = '1';
+      nextEl.style.transform = 'translateX(0)';
+    }
+    
+    // Update button text
+    const btn = document.getElementById('btnTourNext');
+    if (this.currentSlide === this.totalSlides - 1) {
+      btn.textContent = 'Get Started';
+    } else {
+      btn.textContent = 'Next';
     }
   },
   
-  logout() {
-    this.user = null;
-    localStorage.removeItem('meyeUser');
-    document.getElementById('onboardingPage').classList.add('is-active');
-    this.initGoogleAuth();
+  finish() {
+    localStorage.setItem('meyeTourComplete', 'true');
+    const onboarding = document.getElementById('onboardingPage');
+    onboarding.style.opacity = '0';
+    onboarding.style.pointerEvents = 'none';
+    setTimeout(() => {
+      onboarding.classList.remove('is-active');
+    }, 400);
   }
 };
 
@@ -382,7 +384,7 @@ function init() {
   NotificationEngine.init();
   StatsManager.init();
   HeatmapView.init();
-  AuthManager.init();
+  TourManager.init();
 }
 
 function bindDateStripEvents() {
