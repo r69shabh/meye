@@ -2,6 +2,11 @@
 // meye — Main Application Logic
 // ============================================
 
+import { invoke } from '@tauri-apps/api/core';
+import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
+import { open as openUrl } from '@tauri-apps/plugin-shell';
+import { sendNotification, Schedule, isPermissionGranted, requestPermission, cancelAll } from '@tauri-apps/plugin-notification';
+
 // --- Custom Dialog ---
 const CustomDialog = {
   show(title, message, confirmBtnText = 'Discard', cancelBtnText = 'Cancel') {
@@ -129,12 +134,6 @@ const NotificationManager = {
   notifiedSet: new Set(),
   
   async init() {
-    if ('Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
-    
     if ('serviceWorker' in navigator) {
       try {
         const reg = await navigator.serviceWorker.register('/sw.js');
@@ -245,7 +244,8 @@ const NotificationManager = {
         let notifTimeMs = targetDate.getTime() - (offsetMins * 60000);
         
         const diff = currentTimeMs - notifTimeMs;
-        if (diff >= 0 && diff < 15000) {
+        // Allow up to 5 minutes of latency for background throttling
+        if (diff >= 0 && diff < 300000) {
           if (!this.notifiedSet.has(c.id)) {
             this.notifiedSet.add(c.id);
             this.trigger(c, offsetMins);
@@ -255,6 +255,61 @@ const NotificationManager = {
     });
   },
   
+  async scheduleAllNative() {
+    try {
+      const permission = await isPermissionGranted();
+      if (!permission) {
+        await requestPermission();
+      }
+      if (!(await isPermissionGranted())) return;
+      
+      await cancelAll(); // Clear existing
+      
+      if (!SettingsView || !SettingsView.prefs) return;
+      
+      const now = new Date();
+      const todayStr = formatDateKey(now);
+      const currentTimeMs = now.getTime();
+      const offsetMins = SettingsView.prefs.defaultReminder === 'none' ? 0 : parseInt(SettingsView.prefs.defaultReminder) || 0;
+      
+      for (const c of allCards) {
+        if (c.checked) continue;
+        
+        let targetH = null, targetM = null;
+        if (c.reminderTime) {
+          const parts = c.reminderTime.split(':');
+          targetH = parseInt(parts[0]);
+          targetM = parseInt(parts[1]);
+        } else if (c.type === 'calendar' && c.eventTime) {
+          const startRaw = c.eventTime.split('–')[0].trim();
+          const parts = startRaw.split(':');
+          targetH = parseInt(parts[0]);
+          targetM = parseInt(parts[1]);
+        }
+        
+        if (targetH !== null && targetM !== null) {
+          const targetDate = new Date();
+          // For future recurring cards, we might need to handle 'daily', but for MVP we schedule just today's
+          if (c.date === todayStr || c.date === 'daily') {
+            targetDate.setHours(targetH, targetM, 0, 0);
+            const notifTimeMs = targetDate.getTime() - (offsetMins * 60000);
+            
+            // Only schedule if it's in the future
+            if (notifTimeMs > currentTimeMs) {
+              await sendNotification({
+                title: c.text,
+                body: c.type === 'calendar' ? 'Calendar Event starting soon' : 'Task Reminder',
+                schedule: Schedule.at(new Date(notifTimeMs))
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Failed to schedule native notifications', e);
+    }
+  },
+
   trigger(card, offsetMins) {
     const title = card.content;
     let desc = '';
@@ -708,6 +763,9 @@ function syncAndSave() {
   if (typeof SyncManager !== 'undefined') {
     SyncManager.syncToGitHub();
   }
+  if (typeof NotificationManager !== 'undefined' && window.__TAURI_INTERNALS__) {
+    NotificationManager.scheduleAllNative().catch(console.error);
+  }
 }
 
 function formatTime(value) {
@@ -716,6 +774,7 @@ function formatTime(value) {
   return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
 
+// Track dates
 let currentDate = new Date();
 let selectedDate = new Date();
 let allCards = loadCards();
@@ -907,6 +966,9 @@ const ExpandedCardView = {
       if (!this.currentCard) return;
       const idx = allCards.findIndex(c => c.id === this.currentCard.id);
       if (idx > -1) {
+        if (allCards[idx].type === 'calendar') {
+          SyncManager.deleteFromGoogleCalendar(allCards[idx].id);
+        }
         allCards.splice(idx, 1);
         syncAndSave();
         renderCardFeed(allCards, selectedDate, currentDate);
@@ -1237,6 +1299,7 @@ const ExpandedCardView = {
       const lnk = document.getElementById('editLink');
       if (loc) c.location = loc.value;
       if (lnk) c.meetLink = lnk.value;
+      SyncManager.pushToGoogleCalendar(c);
     }
     else if (c.type === 'routine') {
       const items = document.querySelectorAll('.exp-routine-item');
@@ -1605,6 +1668,9 @@ class VoiceRecorder {
     };
 
     allCards.push(newCard);
+    if (newCard.type === 'calendar') {
+      SyncManager.pushToGoogleCalendar(newCard);
+    }
     syncAndSave();
     this.reviewOverlay.classList.remove('is-active');
     OverlayManager.notifyClosed(this);
@@ -2516,6 +2582,54 @@ const SyncManager = {
     const savedState = JSON.parse(localStorage.getItem('meyeSyncState') || '{}');
     this.gistId = savedState.gistId || null;
     this.pat = savedState.pat || null;
+    this.githubUsername = savedState.githubUsername || null;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    if (code) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      this.exchangeCodeForToken(code);
+    }
+    
+    if (window.__TAURI_INTERNALS__) {
+      onOpenUrl((urls) => {
+        for (const url of urls) {
+          try {
+            const parsed = new URL(url);
+            
+            // Check for GitHub OAuth Code
+            const code = parsed.searchParams.get('code');
+            if (code && !url.includes('google')) {
+              this.exchangeCodeForToken(code);
+            }
+            
+            // Check for Google OAuth Code
+            const gCode = parsed.searchParams.get('code');
+            if (gCode && url.includes('google')) {
+              this.exchangeGoogleCode(gCode);
+            }
+
+            // Fallback: Check for Google OAuth Token in hash (if implicitly passed)
+            if (parsed.hash) {
+              const hashParams = new URLSearchParams(parsed.hash.substring(1));
+              const accessToken = hashParams.get('access_token');
+              if (accessToken) {
+                localStorage.setItem('meyeGCalToken', accessToken);
+                if (typeof SettingsView !== 'undefined') {
+                  SettingsView.prefs.calSync = 'google';
+                  SettingsView.save();
+                  SettingsView.applyAll();
+                }
+                this.fetchGoogleEvents();
+              }
+            }
+          } catch (e) {
+            console.error('Failed to parse deep link URL', e);
+          }
+        }
+      }).catch(console.error);
+    }
+
     this.updateStatusUI();
 
     if (typeof SettingsView !== 'undefined' && SettingsView.prefs.calSync === 'google') {
@@ -2523,29 +2637,96 @@ const SyncManager = {
     }
   },
 
-  updateStatusUI() {
-    const statusEl = document.getElementById('sv-githubSyncStatus');
-    const syncNowBtn = document.getElementById('btnGitHubSyncNow');
-    if (statusEl) {
-      statusEl.textContent = this.pat ? (this.gistId ? 'Active' : 'PAT Saved') : 'Not Configured';
-      statusEl.style.color = (this.pat && this.gistId) ? '#34C759' : '';
+  async updateStatusUI() {
+    const statusEl = document.getElementById('labelGitHubSyncStatus');
+    const svStatusEl = document.getElementById('sv-githubSyncStatus');
+    
+    if (this.pat && !this.githubUsername) {
+      try {
+        const res = await fetch('https://api.github.com/user', {
+          headers: { 'Authorization': `Bearer ${this.pat}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          this.githubUsername = data.login;
+          localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId, githubUsername: this.githubUsername }));
+        }
+      } catch(e) {}
     }
+
+    const displayStatus = this.pat ? (this.githubUsername || 'Connected') : 'Not Connected';
+    
+    if (statusEl) {
+      statusEl.textContent = displayStatus;
+    }
+    if (svStatusEl) {
+      svStatusEl.textContent = this.pat ? displayStatus : '';
+    }
+    
+    const syncNowBtn = document.getElementById('btnGitHubSyncNow');
     if (syncNowBtn) syncNowBtn.style.display = this.pat ? 'block' : 'none';
   },
 
-  // GitHub Device Flow logic removed due to CORS limitations in PWA environment
-  // User must manually paste a PAT instead.
+  async exchangeCodeForToken(code) {
+    try {
+      const res = await fetch('https://meyee.vercel.app/api/github-auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json();
+      
+      if (data.access_token) {
+        this.pat = data.access_token;
+        localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
+        await this.updateStatusUI();
+        if (typeof SettingsView !== 'undefined') {
+          SettingsView.prefs.ghToken = true;
+          SettingsView.save();
+        }
+        await this.syncToGitHub();
+        alert('GitHub successfully connected!');
+      } else {
+        alert('Failed to connect to GitHub: ' + (data.error || 'Unknown error'));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Network error while connecting to GitHub.');
+    }
+  },
 
-
-  async savePersonalAccessToken() {
-    const input = document.getElementById('githubPatInput');
-    const token = input?.value.trim();
-    if (!token) return;
-    this.pat = token;
-    localStorage.setItem('meyeSyncState', JSON.stringify({ pat: this.pat, gistId: this.gistId }));
-    if (input) input.value = '';
-    this.updateStatusUI();
-    await this.syncToGitHub();
+  async exchangeGoogleCode(code) {
+    try {
+      const clientId = '231629020948-iu34vnodkk641o79sb4240eou5gprmc7.apps.googleusercontent.com';
+      const redirectUri = 'com.googleusercontent.apps.231629020948-iu34vnodkk641o79sb4240eou5gprmc7:/oauth2redirect';
+      
+      const res = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: clientId,
+          code: code,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri
+        })
+      });
+      const data = await res.json();
+      if (data.access_token) {
+        localStorage.setItem('meyeGCalToken', data.access_token);
+        if (typeof SettingsView !== 'undefined') {
+          SettingsView.prefs.calSync = 'google';
+          SettingsView.save();
+          SettingsView.applyAll();
+        }
+        this.fetchGoogleEvents();
+        alert('Google Calendar successfully connected!');
+      } else {
+        alert('Google Auth failed: ' + (data.error_description || data.error));
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Network error while connecting to Google Calendar.');
+    }
   },
 
   async syncToGitHub() {
@@ -2751,6 +2932,103 @@ const SyncManager = {
     } catch (e) {
       console.error("Failed to fetch Google Calendar events", e);
     }
+  },
+
+  parseGoogleDateTime(dateStr, timeStr) {
+    if (!timeStr) {
+      return { start: { date: dateStr }, end: { date: dateStr } };
+    }
+    const times = timeStr.match(/(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)?/gi) || [];
+    const parseTime = (t) => {
+      let [time, modifier] = t.split(/\s*(a\.?m\.?|p\.?m\.?)/i);
+      let [hours, minutes] = time.split(':');
+      hours = parseInt(hours, 10);
+      if (modifier) {
+        modifier = modifier.toLowerCase().replace(/\./g, '');
+        if (hours === 12 && modifier !== 'pm') hours = 0;
+        if (modifier === 'pm' && hours < 12) hours += 12;
+      }
+      return { h: hours, m: parseInt(minutes, 10) };
+    };
+
+    if (times.length === 0) {
+      return { start: { date: dateStr }, end: { date: dateStr } };
+    }
+
+    const startT = parseTime(times[0]);
+    const startD = new Date(`${dateStr}T00:00:00`);
+    startD.setHours(startT.h, startT.m, 0, 0);
+
+    let endD = new Date(startD);
+    if (times.length > 1) {
+      const endT = parseTime(times[1]);
+      endD.setHours(endT.h, endT.m, 0, 0);
+    } else {
+      endD.setHours(startD.getHours() + 1);
+    }
+
+    const pad = (n) => String(n).padStart(2, '0');
+    const tzOffset = -startD.getTimezoneOffset();
+    const sign = tzOffset >= 0 ? '+' : '-';
+    const tz = `${sign}${pad(Math.floor(Math.abs(tzOffset) / 60))}:${pad(Math.abs(tzOffset) % 60)}`;
+
+    const startStr = `${startD.getFullYear()}-${pad(startD.getMonth()+1)}-${pad(startD.getDate())}T${pad(startD.getHours())}:${pad(startD.getMinutes())}:00${tz}`;
+    const endStr = `${endD.getFullYear()}-${pad(endD.getMonth()+1)}-${pad(endD.getDate())}T${pad(endD.getHours())}:${pad(endD.getMinutes())}:00${tz}`;
+
+    return {
+      start: { dateTime: startStr },
+      end: { dateTime: endStr }
+    };
+  },
+
+  async pushToGoogleCalendar(card) {
+    const token = localStorage.getItem('meyeGCalToken');
+    if (!token || card.type !== 'calendar') return;
+    
+    const payload = {
+      summary: card.content,
+      location: card.location || '',
+      description: card.meetLink ? `Meeting Link: ${card.meetLink}\n${card.details || ''}` : (card.details || ''),
+      ...this.parseGoogleDateTime(card.date, card.eventTime)
+    };
+
+    const isEdit = String(card.id).startsWith('gcal_');
+    const endpoint = isEdit 
+      ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${String(card.id).replace('gcal_', '')}`
+      : 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+
+    try {
+      const res = await fetch(endpoint, {
+        method: isEdit ? 'PATCH' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.id) {
+        card.id = 'gcal_' + data.id;
+        card.source = 'google';
+        syncAndSave();
+      }
+    } catch (e) {
+      console.error("GCal Push Exception", e);
+    }
+  },
+
+  async deleteFromGoogleCalendar(id) {
+    const token = localStorage.getItem('meyeGCalToken');
+    if (!token || !String(id).startsWith('gcal_')) return;
+    
+    try {
+      await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${String(id).replace('gcal_', '')}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } catch(e) {
+      console.error("GCal Delete Exception", e);
+    }
   }
 };
 
@@ -2771,8 +3049,6 @@ const SettingsView = {
     this.dropdown = document.getElementById('settingsDropdown');
     this.mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     this.mediaQuery.addEventListener('change', () => this.applyAppearance());
-
-    this.initGoogleAuth();
 
     // Load prefs
     this.prefs = { ...this.DEFAULTS, ...JSON.parse(localStorage.getItem('meyePrefsV2') || '{}') };
@@ -2834,14 +3110,24 @@ const SettingsView = {
         document.getElementById('importBackupFile').click();
         return;
       }
+      if (e.target.closest('#settingsPrivacyPolicy')) {
+        window.open('/privacy.html', '_blank');
+        return;
+      }
+      if (e.target.closest('#settingsTermsOfService')) {
+        window.open('/terms.html', '_blank');
+        return;
+      }
 
       // Reset All Data
       if (e.target.closest('#settingsResetAll')) {
         document.getElementById('settingsResetConfirm').style.display = 'flex';
         return;
       }
+    });
 
-      // Dropdown item
+    // Dropdown item click handled separately since dropdown is outside page
+    this.dropdown.addEventListener('click', (e) => {
       const item = e.target.closest('.settings-dropdown-item');
       if (item) {
         this.selectOption(item.dataset.val, item.dataset.label);
@@ -2853,8 +3139,8 @@ const SettingsView = {
     document.getElementById('btnCancelGitHubPat').addEventListener('click', () => {
       document.getElementById('settingsGitHubOverlay').style.display = 'none';
     });
-    document.getElementById('btnSaveGitHubPat').addEventListener('click', () => {
-      SettingsView.savePersonalAccessToken();
+    document.getElementById('btnStartGitHubLogin').addEventListener('click', () => {
+      openUrl('https://meyee.vercel.app/api/github-auth');
     });
     document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
       SettingsView.syncToGitHub();
@@ -2872,11 +3158,18 @@ const SettingsView = {
         return;
       }
       
-      if (!this.tokenClient) {
-        alert('Google API client is still loading. Please try again in a moment.');
-        return;
+      const clientId = '231629020948-iu34vnodkk641o79sb4240eou5gprmc7.apps.googleusercontent.com';
+      const redirectUri = 'com.googleusercontent.apps.231629020948-iu34vnodkk641o79sb4240eou5gprmc7:/oauth2redirect';
+      const scope = 'https://www.googleapis.com/auth/calendar.events';
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+      
+      try {
+        openUrl(authUrl);
+      } catch (e) {
+        console.error("Failed to open Google Auth URL:", e);
+        window.location.href = authUrl;
       }
-      this.tokenClient.requestAccessToken({prompt: 'consent'});
+      
       document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
     });
     document.getElementById('btnCancelGoogleCal').addEventListener('click', () => {
@@ -2924,7 +3217,7 @@ const SettingsView = {
     }
     
     const calSv = document.getElementById('sv-calSyncStatus');
-    if (calSv) calSv.textContent = this.prefs.calSync === 'google' ? 'Active' : 'Not Configured';
+    if (calSv) calSv.textContent = this.prefs.calSync === 'google' ? 'Active' : '';
 
     // Auto backup toggle
     const tog = document.getElementById('toggleAutoBackup');
@@ -2957,7 +3250,7 @@ const SettingsView = {
       html += `
         <button class="settings-dropdown-item ${selected}" data-val="${opt.val}" data-label="${opt.label}">
           <span style="display:flex;align-items:center;gap:8px;">${swatch}${opt.label}</span>
-          <iconify-icon icon="solar:check-read-linear" width="18" height="18" class="sdi-check"></iconify-icon>
+          <iconify-icon icon="solar:check-linear" width="18" height="18" class="sdi-check"></iconify-icon>
         </button>`;
     }
     this.dropdown.innerHTML = html;
@@ -2994,36 +3287,16 @@ const SettingsView = {
     if (key === 'fontSize') this.applyFontSize(val);
     if (key === 'notifSound') NotificationEngine.soundEnabled = val !== 'none';
 
+    if ((key === 'notifSound' || key === 'defaultReminder') && val !== 'none') {
+      if ('Notification' in window && Notification.permission !== 'granted') {
+        Notification.requestPermission();
+      }
+    }
+
     this.save();
     this.closeDropdown();
   },
 
-  initGoogleAuth() {
-    // ⚠️ IMPORTANT: Replace with your actual Google Cloud OAuth Client ID!
-    const CLIENT_ID = '231629020948-p2pspiejpqv582bm3pok4uhq4lodduvj.apps.googleusercontent.com';
-    const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly';
-    
-    const checkGIS = setInterval(() => {
-      if (window.google && window.google.accounts) {
-        clearInterval(checkGIS);
-        this.tokenClient = google.accounts.oauth2.initTokenClient({
-          client_id: CLIENT_ID,
-          scope: SCOPES,
-          callback: (tokenResponse) => {
-            if (tokenResponse && tokenResponse.access_token) {
-              localStorage.setItem('meyeGCalToken', tokenResponse.access_token);
-              this.prefs.calSync = 'google';
-              this.save();
-              this.applyAll();
-              if (typeof SyncManager !== 'undefined') {
-                SyncManager.fetchGoogleEvents();
-              }
-            }
-          },
-        });
-      }
-    }, 500);
-  },
 
   save() {
     localStorage.setItem('meyePrefsV2', JSON.stringify(this.prefs));
