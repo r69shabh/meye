@@ -2631,6 +2631,21 @@ const SyncManager = {
     if (typeof SettingsView !== 'undefined' && SettingsView.prefs.calSync === 'google') {
       this.fetchGoogleEvents();
     }
+    if (this.pat) {
+      this.pullFromGitHub();
+    }
+
+    // Auto-sync when the app comes back into focus
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        if (typeof SettingsView !== 'undefined' && SettingsView.prefs.calSync === 'google') {
+          this.fetchGoogleEvents();
+        }
+        if (this.pat) {
+          this.pullFromGitHub();
+        }
+      }
+    });
   },
 
   async updateStatusUI() {
