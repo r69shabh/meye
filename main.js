@@ -3048,20 +3048,36 @@ const SettingsView = {
 
       if (e.target.closest('#settingsGoogleCalSync')) {
         const btnLogin = document.getElementById('btnStartGoogleCalLogin');
+        const btnSync = document.getElementById('btnGoogleSyncNow');
         if (this.prefs.calSync === 'google') {
           btnLogin.textContent = 'Disconnect Google Calendar';
           btnLogin.style.background = '#FF453A';
           btnLogin.style.color = '#FFF';
+          btnSync.style.display = 'block';
         } else {
           btnLogin.textContent = 'Link Google Calendar';
           btnLogin.style.background = 'var(--text-primary)';
           btnLogin.style.color = 'var(--bg-primary)';
+          btnSync.style.display = 'none';
         }
         document.getElementById('settingsGoogleCalOverlay').style.display = 'flex';
         return;
       }
 
       if (e.target.closest('#settingsGitHubSync')) {
+        const btnLogin = document.getElementById('btnStartGitHubLogin');
+        const btnSync = document.getElementById('btnGitHubSyncNow');
+        if (SyncManager.pat) {
+          btnLogin.textContent = 'Disconnect GitHub';
+          btnLogin.style.background = '#FF453A';
+          btnLogin.style.color = '#FFF';
+          btnSync.style.display = 'block';
+        } else {
+          btnLogin.textContent = 'Link GitHub Account';
+          btnLogin.style.background = 'var(--text-primary)';
+          btnLogin.style.color = 'var(--bg-primary)';
+          btnSync.style.display = 'none';
+        }
         document.getElementById('settingsGitHubOverlay').style.display = 'flex';
         return;
       }
@@ -3103,11 +3119,19 @@ const SettingsView = {
       document.getElementById('settingsGitHubOverlay').style.display = 'none';
     });
     document.getElementById('btnStartGitHubLogin').addEventListener('click', () => {
+      if (SyncManager.pat) {
+        // Disconnect
+        SyncManager.pat = null;
+        localStorage.removeItem('meyeGitHubPAT');
+        document.getElementById('settingsGitHubOverlay').style.display = 'none';
+        return;
+      }
       const authUrl = 'https://meyee.vercel.app/api/github-auth';
       window.location.href = authUrl;
     });
     document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
-      SettingsView.syncToGitHub();
+      SyncManager.syncToGitHub();
+      document.getElementById('settingsGitHubOverlay').style.display = 'none';
     });
 
     // Google Calendar Overlay
@@ -3131,6 +3155,12 @@ const SettingsView = {
       
       document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
     });
+    
+    document.getElementById('btnGoogleSyncNow').addEventListener('click', () => {
+      SyncManager.fetchGoogleEvents();
+      document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
+    });
+    
     document.getElementById('btnCancelGoogleCal').addEventListener('click', () => {
       document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
     });
