@@ -2603,13 +2603,7 @@ const SyncManager = {
               this.exchangeCodeForToken(code);
             }
             
-            // Check for Google OAuth Code
-            const gCode = parsed.searchParams.get('code');
-            if (gCode && url.includes('google')) {
-              this.exchangeGoogleCode(gCode);
-            }
-
-            // Fallback: Check for Google OAuth Token in hash (if implicitly passed)
+            // Check for Google OAuth Token in hash
             if (parsed.hash) {
               const hashParams = new URLSearchParams(parsed.hash.substring(1));
               const accessToken = hashParams.get('access_token');
@@ -2621,6 +2615,8 @@ const SyncManager = {
                   SettingsView.applyAll();
                 }
                 this.fetchGoogleEvents();
+                // Strip the hash from URL
+                window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
               }
             }
           } catch (e) {
@@ -2695,39 +2691,6 @@ const SyncManager = {
     }
   },
 
-  async exchangeGoogleCode(code) {
-    try {
-      const clientId = '231629020948-iu34vnodkk641o79sb4240eou5gprmc7.apps.googleusercontent.com';
-      const redirectUri = 'com.googleusercontent.apps.231629020948-iu34vnodkk641o79sb4240eou5gprmc7:/oauth2redirect';
-      
-      const res = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          code: code,
-          grant_type: 'authorization_code',
-          redirect_uri: redirectUri
-        })
-      });
-      const data = await res.json();
-      if (data.access_token) {
-        localStorage.setItem('meyeGCalToken', data.access_token);
-        if (typeof SettingsView !== 'undefined') {
-          SettingsView.prefs.calSync = 'google';
-          SettingsView.save();
-          SettingsView.applyAll();
-        }
-        this.fetchGoogleEvents();
-        alert('Google Calendar successfully connected!');
-      } else {
-        alert('Google Auth failed: ' + (data.error_description || data.error));
-      }
-    } catch (e) {
-      console.error(e);
-      alert('Network error while connecting to Google Calendar.');
-    }
-  },
 
   async syncToGitHub() {
     if (!this.pat) return;
@@ -3140,7 +3103,8 @@ const SettingsView = {
       document.getElementById('settingsGitHubOverlay').style.display = 'none';
     });
     document.getElementById('btnStartGitHubLogin').addEventListener('click', () => {
-      openUrl('https://meyee.vercel.app/api/github-auth');
+      const authUrl = 'https://meyee.vercel.app/api/github-auth';
+      window.location.href = authUrl;
     });
     document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
       SettingsView.syncToGitHub();
@@ -3159,16 +3123,11 @@ const SettingsView = {
       }
       
       const clientId = '231629020948-iu34vnodkk641o79sb4240eou5gprmc7.apps.googleusercontent.com';
-      const redirectUri = 'com.googleusercontent.apps.231629020948-iu34vnodkk641o79sb4240eou5gprmc7:/oauth2redirect';
+      const redirectUri = window.location.origin;
       const scope = 'https://www.googleapis.com/auth/calendar.events';
-      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=${scope}`;
+      const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
       
-      try {
-        openUrl(authUrl);
-      } catch (e) {
-        console.error("Failed to open Google Auth URL:", e);
-        window.location.href = authUrl;
-      }
+      window.location.href = authUrl;
       
       document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
     });

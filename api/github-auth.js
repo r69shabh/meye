@@ -22,9 +22,8 @@ export default async function handler(req, res) {
 
   // If GET, redirect to GitHub authorization page or handle callback
   if (req.method === 'GET') {
-    // If GitHub sent a code, it's a callback. Redirect back to the native app!
     if (req.query && req.query.code) {
-      res.redirect(302, `meye://auth/github?code=${req.query.code}`);
+      res.redirect(302, `https://meyee.vercel.app/?code=${req.query.code}`);
       return;
     }
 
