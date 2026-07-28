@@ -2778,10 +2778,15 @@ const SyncManager = {
       const data = await res.json();
       if (data.files && data.files['meye_backup.json']) {
         const content = JSON.parse(data.files['meye_backup.json'].content);
-        if (content.allCards) localStorage.setItem('meyeCards', JSON.stringify(content.allCards));
-        if (content.stats) localStorage.setItem('meyeStatsNew', JSON.stringify(content.stats));
-        if (content.prefs) localStorage.setItem('meyePrefsV2', JSON.stringify(content.prefs));
-        location.reload();
+        const newCardsStr = JSON.stringify(content.allCards || []);
+        const currentCardsStr = localStorage.getItem('meyeCards') || '[]';
+        
+        if (newCardsStr !== currentCardsStr) {
+          if (content.allCards) localStorage.setItem('meyeCards', newCardsStr);
+          if (content.stats) localStorage.setItem('meyeStatsNew', JSON.stringify(content.stats));
+          if (content.prefs) localStorage.setItem('meyePrefsV2', JSON.stringify(content.prefs));
+          location.reload();
+        }
       }
     } catch (e) {
       console.error("Pull failed", e);
