@@ -2591,39 +2591,23 @@ const SyncManager = {
       this.exchangeCodeForToken(code);
     }
     
-    if (window.__TAURI_INTERNALS__) {
-      onOpenUrl((urls) => {
-        for (const url of urls) {
-          try {
-            const parsed = new URL(url);
-            
-            // Check for GitHub OAuth Code
-            const code = parsed.searchParams.get('code');
-            if (code && !url.includes('google')) {
-              this.exchangeCodeForToken(code);
-            }
-            
-            // Check for Google OAuth Token in hash
-            if (parsed.hash) {
-              const hashParams = new URLSearchParams(parsed.hash.substring(1));
-              const accessToken = hashParams.get('access_token');
-              if (accessToken) {
-                localStorage.setItem('meyeGCalToken', accessToken);
-                if (typeof SettingsView !== 'undefined') {
-                  SettingsView.prefs.calSync = 'google';
-                  SettingsView.save();
-                  SettingsView.applyAll();
-                }
-                this.fetchGoogleEvents();
-                // Strip the hash from URL
-                window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
-              }
-            }
-          } catch (e) {
-            console.error('Failed to parse deep link URL', e);
+    if (window.location.hash) {
+      try {
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        if (accessToken) {
+          localStorage.setItem('meyeGCalToken', accessToken);
+          if (typeof SettingsView !== 'undefined') {
+            SettingsView.prefs.calSync = 'google';
+            SettingsView.save();
+            SettingsView.applyAll();
           }
+          this.fetchGoogleEvents();
+          window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
         }
-      }).catch(console.error);
+      } catch (e) {
+        console.error('Failed to parse web hash token', e);
+      }
     }
 
     this.updateStatusUI();
@@ -3073,13 +3057,12 @@ const SettingsView = {
           btnLogin.textContent = 'Disconnect Google Calendar';
           btnLogin.style.background = '#FF453A';
           btnLogin.style.color = '#FFF';
-          btnSync.style.display = 'block';
         } else {
           btnLogin.textContent = 'Link Google Calendar';
           btnLogin.style.background = 'var(--text-primary)';
           btnLogin.style.color = 'var(--bg-primary)';
-          btnSync.style.display = 'none';
         }
+        btnSync.style.display = 'none';
         document.getElementById('settingsGoogleCalOverlay').style.display = 'flex';
         return;
       }
@@ -3091,13 +3074,12 @@ const SettingsView = {
           btnLogin.textContent = 'Disconnect GitHub';
           btnLogin.style.background = '#FF453A';
           btnLogin.style.color = '#FFF';
-          btnSync.style.display = 'block';
         } else {
           btnLogin.textContent = 'Link GitHub Account';
           btnLogin.style.background = 'var(--text-primary)';
           btnLogin.style.color = 'var(--bg-primary)';
-          btnSync.style.display = 'none';
         }
+        btnSync.style.display = 'none';
         document.getElementById('settingsGitHubOverlay').style.display = 'flex';
         return;
       }
