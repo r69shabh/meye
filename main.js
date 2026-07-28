@@ -1617,7 +1617,13 @@ class VoiceRecorder {
     clearInterval(this.timerInterval);
     clearTimeout(this.stalledTimeout);
     this.targetAmplitude = 0.02;
-    try { this.recognition?.stop(); } catch(_) {}
+    if (this.recognition) {
+      this.recognition.onresult = null;
+      this.recognition.onerror = null;
+      this.recognition.onend = null;
+      try { this.recognition.stop(); } catch(_) {}
+      this.recognition = null;
+    }
   }
 
   _showReview(parsed) {
