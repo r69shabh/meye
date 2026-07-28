@@ -1358,16 +1358,26 @@ class VoiceRecorder {
   _bindButtons() {
     document.getElementById('btnPause').addEventListener('click', () => this.togglePause());
     document.getElementById('btnDone').addEventListener('click', () => this.finish());
-    document.getElementById('btnCancel').addEventListener('click', () => this.cancel());
+    document.getElementById('btnCancel').addEventListener('click', () => this.reset());
     document.getElementById('btnCloseOverlay').addEventListener('click', () => this.cancel());
     document.getElementById('btnReviewBack').addEventListener('click', () => this._showSpeaking());
     document.getElementById('btnConfirmCard').addEventListener('click', () => this.confirmCard());
+    document.getElementById('btnReviewCancel').addEventListener('click', () => this.cancel());
+    document.getElementById('btnEditCard').addEventListener('click', () => {
+      this.cancel();
+      Composer.open(this.finalText);
+    });
   }
 
   async open() {
     const proceed = await OverlayManager.requestOpen(this);
     if (!proceed) return;
     this.overlay.classList.add('is-active');
+    this.reset();
+  }
+
+  reset() {
+    this._stopAll();
     this.seconds = 0;
     this.paused = false;
     this.finalText = '';
@@ -1683,7 +1693,7 @@ const SmartParser = {
   // ── Patterns ──────────────────────────────────────────────────────
   FILLERS: /\b(uh+h*|um+|hmm+|mhm|ah+|oh|er|like,?|so,?|you know,?|i mean,?|basically|literally|right,?|okay|ok|well,?|actually|honestly|kind of|sort of|i guess|you see|i think)\b\s*/gi,
 
-  INTENT_PREFIX: /^(hey[,\s]*|hi[,\s]*)?(please\s+)?(can you\s+)?(remind me (to|that|about)?|don'?t forget (to)?|note (that|to self[:\s]*)?|i('ve| have)?\s+(to|got to|gotta|need to|should)|we\s+(need|should|have) to|remember (to)?|make a note|add (a )?(reminder|task|to[-\s]?do)[:\s]*|set (a )?reminder (to)?|i want to|i('?d| would) like to|let'?s|note[:\s]+)\s*/i,
+  INTENT_PREFIX: /^(hey[,\s]*|hi[,\s]*)?(please\s+)?(can you\s+)?(remind me (to|that|about)?|don'?t forget (to)?|note (that|to self[:\s]*)?|i('ve| have)?\s+(to|got to|gotta|need to|should)|we\s+(need|should|have) to|remember (to)?|make a note|add (an? )?(event|calendar event)( to my (google )?(calendar|cal))?( to)?|add (a )?(reminder|task|to[-\s]?do)[:\s]*|set (a )?reminder (to)?|i want to|i('?d| would) like to|let'?s|note[:\s]+)\s*/i,
 
   // Time patterns
   TIME_RE:       /(?:(around\s+|at\s+|by\s+)(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock)?|(\d{1,2})(?:\s*[:.]\s*(\d{2}))?\s*(a\.?m\.?|p\.?m\.?|o'?clock))|\b(noon|midnight)\b/i,
@@ -2056,10 +2066,10 @@ const Composer = {
     this.addBtn.addEventListener('click', () => this._submit());
   },
 
-  async open() {
+  async open(initialText = '') {
     const proceed = await OverlayManager.requestOpen(this);
     if (!proceed) return;
-    this.input.value = '';
+    this.input.value = initialText;
     this.detected.innerHTML = '';
     this.input.style.height = 'auto';
     this.lastParsed = null;
@@ -2068,8 +2078,14 @@ const Composer = {
     this.typeRow.querySelector('[data-type="auto"]').classList.add('active');
 
     this.overlay.classList.add('is-open');
+    if (initialText) {
+      this._updatePreview();
+    }
     // Focus after transition
-    setTimeout(() => this.input.focus(), 350);
+    setTimeout(() => {
+      this.input.focus();
+      if (initialText) this.input.setSelectionRange(this.input.value.length, this.input.value.length);
+    }, 350);
   },
 
   close() {
