@@ -14,7 +14,24 @@ import './PlatformBridge.js';
   }
 
   if (navigator.userAgent.toLowerCase().includes('electron')) {
-    document.body.classList.add('electron-desktop');
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'class') {
+          const wrapper = document.querySelector('.app-wrapper');
+          if (wrapper) {
+            const hasActive = wrapper.classList.contains('has-active-overlay');
+            if (window.electronAPI && window.electronAPI.setOverlayState) {
+              window.electronAPI.setOverlayState(hasActive);
+            }
+          }
+        }
+      });
+    });
+    // We must wait for DOMContentLoaded to observe
+    document.addEventListener('DOMContentLoaded', () => {
+      const wrapper = document.querySelector('.app-wrapper');
+      if (wrapper) observer.observe(wrapper, { attributes: true });
+    });
   }
 })();
 
