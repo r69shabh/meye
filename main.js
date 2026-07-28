@@ -2854,11 +2854,17 @@ const SyncManager = {
     if (!token) return;
     try {
       const startOfDay = new Date();
+      startOfDay.setDate(startOfDay.getDate() - 7);
       startOfDay.setHours(0, 0, 0, 0);
+
       const endOfDay = new Date();
+      endOfDay.setDate(endOfDay.getDate() + 30);
       endOfDay.setHours(23, 59, 59, 999);
       
-      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}&singleEvents=true&orderBy=startTime`, {
+      const startKey = formatDateKey(startOfDay);
+      const endKey = formatDateKey(endOfDay);
+      
+      const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startOfDay.toISOString()}&timeMax=${endOfDay.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=500`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -2877,19 +2883,22 @@ const SyncManager = {
         return;
       }
       
-      const todayKey = formatDateKey(new Date());
-      allCards = allCards.filter(c => !(c.type === 'calendar' && c.date === todayKey && c.source === 'google'));
+      allCards = allCards.filter(c => !(c.type === 'calendar' && c.source === 'google' && c.date >= startKey && c.date <= endKey));
       
       if (data.items) {
         data.items.forEach(ev => {
           if (ev.status === 'cancelled') return;
           const summary = ev.summary || 'Busy';
           let timeStr = '';
+          let evDateStr = ev.start.dateTime || ev.start.date;
+          if (!evDateStr) return;
+          
+          let evDate = new Date(evDateStr);
+          
           if (ev.start && ev.start.dateTime) {
-            const startDate = new Date(ev.start.dateTime);
             const endDate = new Date(ev.end.dateTime);
             const formatGoogleTime = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-            timeStr = `${formatGoogleTime(startDate)} – ${formatGoogleTime(endDate)}`;
+            timeStr = `${formatGoogleTime(evDate)} – ${formatGoogleTime(endDate)}`;
           } else {
             timeStr = 'All Day';
           }
@@ -2897,7 +2906,7 @@ const SyncManager = {
           allCards.push({
             id: 'gcal_' + ev.id,
             type: 'calendar',
-            date: todayKey,
+            date: formatDateKey(evDate),
             content: summary,
             eventTime: timeStr,
             tags: ['Google Calendar'],
