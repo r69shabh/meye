@@ -2,10 +2,7 @@
 // meye — Main Application Logic
 // ============================================
 
-import { invoke } from '@tauri-apps/api/core';
-import { onOpenUrl } from '@tauri-apps/plugin-deep-link';
-import { open as openUrl } from '@tauri-apps/plugin-shell';
-import { sendNotification, Schedule, isPermissionGranted, requestPermission, cancelAll } from '@tauri-apps/plugin-notification';
+
 
 // --- Custom Dialog ---
 const CustomDialog = {
@@ -1702,7 +1699,7 @@ const SmartParser = {
 
   // Type signals
   HABIT_KEYWORDS_RE: /\b(workout|exercise|gym|yoga|meditate|meditation|journaling?|stretch(ing)?|calisthenics|pull\s*day|push\s*day|leg\s*day|run(ning)?|jog(ging)?)\b/i,
-  CALENDAR_RE: /\b(meeting|standup|stand-?up|interview|appointment|sync|session|catch-?up|debrief|demo|presentation|call\s+with|chat\s+with|lunch\s+with|dinner\s+with|coffee\s+with|hangout|hang\s+out|zoom|teams\s+call)\b/i,
+  CALENDAR_RE: /\b(event|google cal(endar)?|gcal|meeting|standup|stand-?up|interview|appointment|sync|session|catch-?up|debrief|demo|presentation|call\s+with|chat\s+with|lunch\s+with|dinner\s+with|coffee\s+with|hangout|hang\s+out|zoom|teams\s+call)\b/i,
   TODO_RE:     /\b(buy|get|pick\s+up|grab|order|call|text|message|email|send|reply|respond|submit|upload|download|finish|complete|write|clean|fix|check|review|read|watch|book|reserve|pay|return|fill|sign|print|prepare|plan|organise|organize|remind|bring|drop|file|update|install|set\s+up|register|cancel|reschedule|renew|collect|go\s+to)\b/i,
 
   NOTE_SIGNAL_RE: /\b(trying to (understand|figure out|see|know|think|process|make sense)|not sure|i('?m| am) not|i wonder|wondering|let me (think|see|check)|i don'?t know|just thinking|was thinking|it seems|feels like|i noticed|interesting|what'?s happening|i'?m confused|seems like|today i|i went|i saw|i felt|i had|i was)\b/i,
@@ -1991,6 +1988,9 @@ function createCardFromParsed(parsed) {
 
   allCards.unshift(newCard);
   syncAndSave();
+  if (newCard.type === 'calendar' && typeof SyncManager !== 'undefined') {
+    SyncManager.pushToGoogleCalendar(newCard);
+  }
   renderCardFeed(allCards, selectedDate, currentDate);
   renderDateStrip(getWeekDates(selectedDate), selectedDate, allCards);
   return newCard;
