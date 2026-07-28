@@ -9,7 +9,7 @@ import './PlatformBridge.js';
   if (hash && hash.includes('access_token')) {
     const params = new URLSearchParams(hash.substring(1));
     if (params.get('state') === 'electron') {
-      window.location.href = `meyeeapp://oauth${hash}`;
+      window.location.href = `http://127.0.0.1:3456/callback?access_token=${params.get('access_token')}`;
     }
   }
 

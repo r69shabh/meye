@@ -25,7 +25,7 @@ export default async function handler(req, res) {
     const state = req.query.state || '';
     if (req.query && req.query.code) {
       if (state === 'electron') {
-        res.redirect(302, `meyeeapp://oauth?code=${req.query.code}`);
+        res.redirect(302, `http://127.0.0.1:3456/callback?code=${req.query.code}`);
       } else {
         res.redirect(302, `https://meyee.vercel.app/?code=${req.query.code}`);
       }
