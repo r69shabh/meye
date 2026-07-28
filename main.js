@@ -3176,7 +3176,7 @@ const SettingsView = {
         return;
       }
       
-      const clientId = '231629020948-iu34vnodkk641o79sb4240eou5gprmc7.apps.googleusercontent.com';
+      const clientId = '231629020948-p2pspiejpqv582bm3pok4uhq4lodduvj.apps.googleusercontent.com';
       const redirectUri = encodeURIComponent(window.location.origin);
       const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.events');
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
