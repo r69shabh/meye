@@ -3137,12 +3137,22 @@ const SettingsView = {
       if (SyncManager.pat) {
         // Disconnect
         SyncManager.pat = null;
-        localStorage.removeItem('meyeGitHubPAT');
+        SyncManager.githubUsername = null;
+        localStorage.setItem('meyeSyncState', JSON.stringify({ pat: null, gistId: null }));
         document.getElementById('settingsGitHubOverlay').style.display = 'none';
         return;
       }
       const authUrl = 'https://meyee.vercel.app/api/github-auth';
-      window.location.href = authUrl;
+      try {
+        const a = document.createElement('a');
+        a.href = authUrl;
+        a.target = '_self';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) {
+        window.location.href = authUrl;
+      }
     });
     document.getElementById('btnGitHubSyncNow').addEventListener('click', () => {
       SyncManager.syncToGitHub();
@@ -3162,11 +3172,20 @@ const SettingsView = {
       }
       
       const clientId = '231629020948-iu34vnodkk641o79sb4240eou5gprmc7.apps.googleusercontent.com';
-      const redirectUri = window.location.origin;
-      const scope = 'https://www.googleapis.com/auth/calendar.events';
+      const redirectUri = encodeURIComponent(window.location.origin);
+      const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.events');
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}`;
       
-      window.location.href = authUrl;
+      try {
+        const a = document.createElement('a');
+        a.href = authUrl;
+        a.target = '_self'; // PWA usually prefers _self for OAuth so it returns back to the PWA
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } catch (e) {
+        window.location.href = authUrl;
+      }
       
       document.getElementById('settingsGoogleCalOverlay').style.display = 'none';
     });
