@@ -926,6 +926,14 @@ textarea:focus-visible {
   color: #FF3B30;
 }
 
+.control-btn--edit {
+  width: 52px;
+  height: 52px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.12);
+  color: #fff;
+}
+
 /* -----------------------------------------------
    Review Overlay
 ----------------------------------------------- */
@@ -1031,6 +1039,8 @@ textarea:focus-visible {
   flex-shrink: 0;
   display: flex;
   justify-content: center;
+  align-items: center;
+  gap: 32px;
 }
 
 /* ============================================
@@ -2441,12 +2451,14 @@ textarea:focus-visible {
 .light-theme .speaking-overlay .transcript-hint {
   color: rgba(0, 0, 0, 0.3);
 }
-.light-theme .speaking-overlay .control-btn--pause {
+.light-theme .speaking-overlay .control-btn--pause,
+.light-theme .review-overlay .control-btn--edit {
   background: rgba(0,0,0,0.05);
   border: 1px solid rgba(0,0,0,0.1);
   color: #1c1c1e;
 }
-.light-theme .speaking-overlay .control-btn--done {
+.light-theme .speaking-overlay .control-btn--done,
+.light-theme .review-overlay .control-btn--done {
   background: var(--accent-primary);
   color: #fff;
 }
