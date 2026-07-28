@@ -32,8 +32,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const callbackUrl = encodeURIComponent('https://meyee.vercel.app/api/github-auth');
-    const redirectUri = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=gist&redirect_uri=${callbackUrl}&state=${state}`;
+    const redirectUri = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=gist&state=${state}`;
     res.redirect(302, redirectUri);
     return;
   }
