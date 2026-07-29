@@ -24,8 +24,11 @@ export default async function handler(req, res) {
   if (req.method === 'GET') {
     const state = req.query.state || '';
     if (req.query && req.query.code) {
-      if (state === 'electron') {
-        res.redirect(302, `http://127.0.0.1:3456/callback?code=${req.query.code}`);
+      if (state.startsWith('electron:')) {
+        const port = state.split(':')[1];
+        res.redirect(302, `http://127.0.0.1:${port}/callback-data?code=${req.query.code}`);
+      } else if (state === 'android') {
+        res.redirect(302, `meye://oauth-callback?code=${req.query.code}`);
       } else {
         res.redirect(302, `https://meyee.vercel.app/?code=${req.query.code}`);
       }
