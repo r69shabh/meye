@@ -8,9 +8,10 @@ global.formatDateKey = function(d) {
 };
 
 const code = fs.readFileSync('main.js', 'utf8');
-const parserCode = code.substring(code.indexOf('const SmartParser = {'), code.indexOf('// --- State & Interactions ---'));
+const startIndex = code.indexOf('const SmartParser = {');
+const endIndex = code.indexOf('// ============================================', startIndex);
+const parserCode = code.substring(startIndex, endIndex).replace('const SmartParser', 'global.SmartParser');
 eval(parserCode);
-
 
 const tests = [
     "remind me to buy grocery at 8pm",

@@ -1,0 +1,129 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-1234-56789abcdef0",
+    "name": "Meye API Tests",
+    "description": "Collection for testing the Meye GitHub Auth Serverless Function",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GitHub Auth - Missing Code",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.response.to.have.status(400);",
+              "});",
+              "pm.test(\"Error message is present\", function () {",
+              "    var jsonData = pm.response.json();",
+              "    pm.expect(jsonData.error).to.eql(\"Missing code parameter\");",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{api_url}}/api/github-auth",
+          "host": [
+            "{{api_url}}"
+          ],
+          "path": [
+            "api",
+            "github-auth"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GitHub Auth - Invalid Method",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 405\", function () {",
+              "    pm.response.to.have.status(405);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [],
+        "url": {
+          "raw": "{{api_url}}/api/github-auth",
+          "host": [
+            "{{api_url}}"
+          ],
+          "path": [
+            "api",
+            "github-auth"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "GitHub Auth - Redirect Check (GET)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status is 302 Redirect\", function () {",
+              "    pm.response.to.have.status(302);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{api_url}}/api/github-auth?state=android",
+          "host": [
+            "{{api_url}}"
+          ],
+          "path": [
+            "api",
+            "github-auth"
+          ],
+          "query": [
+            {
+              "key": "state",
+              "value": "android"
+            }
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "api_url",
+      "value": "https://meyee.vercel.app",
+      "type": "string"
+    }
+  ]
+}
