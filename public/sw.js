@@ -1,4 +1,4 @@
-const CACHE_NAME = 'meye-cache-v6';
+const CACHE_NAME = 'meye-cache-v7';
 
 self.addEventListener('install', event => {
   event.waitUntil(

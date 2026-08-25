@@ -476,6 +476,29 @@ textarea:focus-visible {
   margin-bottom: 2px;
 }
 
+/* Exercise thumbnail strip on routine feed cards */
+.card-ex-strip {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-left: 34px;
+  overflow: hidden;
+}
+.card-ex-strip img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 9px;
+  background: rgba(255,255,255,0.06);
+  padding: 3px;
+  flex-shrink: 0;
+}
+/* Artwork is white-stroked; give it a dark chip in light theme */
+.light-theme .card-ex-strip img,
+.light-theme .ex-thumb img {
+  background: #1c1c1e;
+}
+
 .checkbox {
   width: 22px;
   height: 22px;
@@ -1454,7 +1477,7 @@ textarea:focus-visible {
   font-size: 28px;
   font-weight: 600;
   line-height: 1.2;
-  color: #fff;
+  color: var(--text-primary);
   background: transparent;
   border: none;
   outline: none;
@@ -1478,6 +1501,28 @@ textarea:focus-visible {
   gap: 12px;
   padding: 14px 0;
   border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ex-thumb {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: none;
+  padding: 0;
+  background: rgba(255,255,255,0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.light-theme .ex-thumb {
+  background: transparent;
+}
+.ex-thumb img {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  pointer-events: none;
 }
 .exp-routine-check {
   width: 22px;
@@ -1505,7 +1550,7 @@ textarea:focus-visible {
   flex: 1;
   background: transparent;
   border: none;
-  color: #fff;
+  color: var(--text-primary);
   font-size: 16px;
   font-family: inherit;
   outline: none;

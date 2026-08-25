@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/copy-workouts.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/copy-workouts.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -26,6 +28,7 @@
     "vitest": "^4.1.11"
   },
   "dependencies": {
+    "@bryllim/workout-guide": "^1.0.0",
     "@byteowls/capacitor-oauth2": "^5.0.0",
     "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.4.2",
@@ -36,7 +39,6 @@
     "@capacitor/dialog": "^8.0.1",
     "@capacitor/preferences": "^8.0.1",
     "capacitor-secure-storage-plugin": "^0.13.0",
-    "compromise": "^14.16.0",
     "jsdom": "^28.1.0"
   }
 }

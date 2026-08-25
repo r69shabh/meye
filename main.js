@@ -1,4 +1,5 @@
 import './PlatformBridge.js';
+import { matchExercise, exerciseThumbUrl } from './exerciseMatch.js';
 // ============================================
 // meye — Main Application Logic
 // ============================================
@@ -721,7 +722,7 @@ function buildCardMeta(card) {
   } else if (card.type === 'calendar' && card.eventTime) {
     timeStr = `<span class="card-time" style="display: flex; align-items: center; gap: 4px;"><iconify-icon icon="solar:calendar-linear" width="16" height="16"></iconify-icon>${card.eventTime}</span>`;
   } else if (card.type === 'routine') {
-    timeStr = `<span class="card-time" style="display: flex; align-items: center; gap: 4px;"><iconify-icon icon="solar:refresh-circle-linear" width="16" height="16"></iconify-icon>Daily</span>`;
+    timeStr = `<span class="card-time" style="display: flex; align-items: center; gap: 4px;"><iconify-icon icon="solar:refresh-circle-linear" width="16" height="16"></iconify-icon>${card.scheduleLabel || 'Daily'}</span>`;
   }
 
   if (!timeStr) return '';
@@ -751,11 +752,25 @@ function buildCardContent(card) {
   if (card.type === 'todo' || card.type === 'routine') {
     const checkedClass = card.checked ? 'checkbox--checked' : '';
     const checkSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    let stripHtml = '';
+    if (card.type === 'routine' && card.subItems && card.subItems.length > 0) {
+      const thumbs = [];
+      for (const it of card.subItems) {
+        const ex = matchExercise(typeof it === 'object' ? it.text : it);
+        if (!ex) continue;
+        thumbs.push(`<img src="${exerciseThumbUrl(ex.slug, 1)}" alt="${escapeHTML(ex.name)}" title="${escapeHTML(ex.name)}" loading="lazy">`);
+        if (thumbs.length >= 8) break;
+      }
+      if (thumbs.length > 0) {
+        stripHtml = `<div class="card-ex-strip">${thumbs.join('')}</div>`;
+      }
+    }
     return `
       <div class="card-checkbox">
         <div class="checkbox ${checkedClass}" data-checked="${card.checked}">${checkSvg}</div>
         <span class="card-content" style="${card.checked ? 'text-decoration: line-through; opacity: 0.5;' : ''}">${safeContent}</span>
       </div>
+      ${stripHtml}
     `;
   }
 
@@ -1177,10 +1192,15 @@ const ExpandedCardView = {
               const text = typeof item === 'object' ? item.text : item;
               const meta = typeof item === 'object' ? item.meta || '' : '';
               const done = typeof item === 'object' && item.done;
+              const ex = matchExercise(text);
+              const thumb = ex
+                ? `<button type="button" class="ex-thumb" data-slug="${ex.slug}" data-frame="1" aria-label="${escapeHTML(ex.name)}"><img src="${exerciseThumbUrl(ex.slug, 1)}" alt="" loading="lazy"></button>`
+                : '';
               return `<li class="exp-routine-item" data-index="${i}">
                 <button class="exp-routine-check ${done ? 'is-done' : ''}" aria-label="Toggle">
                   ${done ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
                 </button>
+                ${thumb}
                 <div style="display:flex; flex:1; align-items:center; gap:8px;">
                   <input type="text" class="exp-routine-item-input" value="${text}" placeholder="Task...">
                   <input type="text" class="exp-routine-item-meta" value="${meta}" placeholder="e.g. 3x15" style="width: 60px; font-size: 13px; color: rgba(255,255,255,0.4); background: transparent; border: none; outline: none; text-align: right; flex-shrink: 0;">
@@ -1272,6 +1292,14 @@ const ExpandedCardView = {
       const addBtn = document.getElementById('btnAddRoutineItem');
 
       list?.addEventListener('click', (e) => {
+        const th = e.target.closest('.ex-thumb');
+        if (th) {
+          const next = ((parseInt(th.dataset.frame, 10) || 1) % 3) + 1;
+          th.dataset.frame = next;
+          const img = th.querySelector('img');
+          if (img) img.src = exerciseThumbUrl(th.dataset.slug, next);
+          return;
+        }
         const chk = e.target.closest('.exp-routine-check');
         if (chk) {
           const wasDone = chk.classList.contains('is-done');
@@ -1287,6 +1315,27 @@ const ExpandedCardView = {
         }
         const del = e.target.closest('.exp-routine-delete');
         if (del) del.closest('.exp-routine-item')?.remove();
+      });
+
+      // Live exercise thumbnail as the user types
+      list?.addEventListener('input', (e) => {
+        const inp = e.target.closest('.exp-routine-item-input');
+        if (!inp) return;
+        const li = inp.closest('.exp-routine-item');
+        let th = li.querySelector('.ex-thumb');
+        const ex = matchExercise(inp.value);
+        if (!ex) { th?.remove(); return; }
+        if (!th) {
+          th = document.createElement('button');
+          th.type = 'button';
+          th.className = 'ex-thumb';
+          th.dataset.frame = '1';
+          th.innerHTML = '<img alt="" loading="lazy">';
+          li.insertBefore(th, li.querySelector('div'));
+        }
+        th.dataset.slug = ex.slug;
+        th.setAttribute('aria-label', ex.name);
+        th.querySelector('img').src = exerciseThumbUrl(ex.slug, parseInt(th.dataset.frame, 10) || 1);
       });
 
       addBtn?.addEventListener('click', () => {
@@ -1520,12 +1569,19 @@ class VoiceRecorder {
         },
         onError: (e) => {
           this.targetAmplitude = 0.02;
-          if (e && e.error === 'no-speech') {
+          const err = e && e.error;
+          if (err === 'not-allowed' || err === 'service-not-allowed') {
+            // Permission denied — retrying just loops forever
+            this.hintEl.style.display = '';
+            this.hintEl.textContent = 'Microphone blocked. Allow mic access in Settings, then tap Done and start again.';
+            return;
+          }
+          if (err === 'no-speech') {
             setTimeout(startSession, 100);
             return;
           }
           this.hintEl.style.display = '';
-          this.hintEl.textContent = 'Mic Error: ' + (e ? e.error : 'unknown') + '. Retrying...';
+          this.hintEl.textContent = 'Mic Error: ' + (err || 'unknown') + '. Retrying...';
           setTimeout(startSession, 1000);
         },
         onEnd: () => {
@@ -1624,7 +1680,9 @@ class VoiceRecorder {
       extraTags: 0,
       checked: false,
       reminderTime: parsed.reminderTime,
-      eventTime: parsed.eventTime
+      eventTime: parsed.eventTime,
+      subItems: parsed.subItems,
+      scheduleLabel: parsed.scheduleLabel
     };
 
     const cardHtml = renderCard(mockCard, 0);
@@ -1661,7 +1719,9 @@ class VoiceRecorder {
       reminderTime: this.parsedCard.reminderTime || null,
       eventTime:    this.parsedCard.eventTime    || null,
       transcript:   this.parsedCard.transcript   || '',
-      subItems:     [],
+      subItems:     (this.parsedCard.subItems || []).map(s => ({ ...s })),
+      scheduleLabel: this.parsedCard.scheduleLabel || null,
+      repeatCount:   this.parsedCard.repeatCount || null,
       details:      this.parsedCard.type === 'note' ? (this.parsedCard.transcript || '') : '',
     };
 
@@ -1680,9 +1740,16 @@ class VoiceRecorder {
 // Smart Parser — pure regex, zero dependencies
 // ============================================
 const SmartParser = {
+  // Optional injectable: (text) => { slug, name } | null, used to split
+  // unpunctuated exercise lists. Set to matchExercise at module boot.
+  exerciseLookup: null,
 
   // ── Patterns ──────────────────────────────────────────────────────
-  FILLERS: /\b(uh+h*|um+|hmm+|mhm|ah+|oh|er|like,?|so,?|you know,?|i mean,?|basically|literally|right,?|okay|ok|well,?|actually|honestly|kind of|sort of|i guess|you see|i think)\b\s*/gi,
+  // Pure hesitations are safe to strip anywhere. Discourse fillers ("like",
+  // "so", "well"…) are real words mid-sentence ("I like running"), so only
+  // strip them at the start of the utterance or right after a pause.
+  FILLERS: /\b(uh+h*|um+|hmm+|mhm|ah+|oh|er)\b\s*/gi,
+  FILLERS_DISCOURSE: /(^|[,.;:!]\s*)(like|so|you know|i mean|basically|literally|right|okay|ok|well|actually|honestly|kind of|sort of|i guess|you see|i think)\b,?\s*/gi,
 
   INTENT_PREFIX: /^(hey[,\s]*|hi[,\s]*)?(please\s+)?(can you\s+)?(remind me (to|that|about)?|don'?t forget (to)?|note (that|to self[:\s]*)?|i('ve| have)?\s+(to|got to|gotta|need to|should)|we\s+(need|should|have) to|remember (to)?|make a note|add (an? )?(event|calendar event)( to my (google )?(calendar|cal))?( to)?|add (a )?(reminder|task|to[-\s]?do)[:\s]*|set (a )?reminder (to)?|i want to|i('?d| would) like to|let'?s|note[:\s]+)\s*/i,
 
@@ -1701,7 +1768,7 @@ const SmartParser = {
   // Type signals
   HABIT_KEYWORDS_RE: /\b(workout|exercise|gym|yoga|meditate|meditation|journaling?|stretch(ing)?|calisthenics|pull\s*day|push\s*day|leg\s*day|run(ning)?|jog(ging)?)\b/i,
   CALENDAR_RE: /\b(event|google cal(endar)?|gcal|meeting|standup|stand-?up|interview|appointment|sync|session|catch-?up|debrief|demo|presentation|call\s+with|chat\s+with|lunch\s+with|dinner\s+with|coffee\s+with|hangout|hang\s+out|zoom|teams\s+call)\b/i,
-  TODO_RE:     /\b(buy|get|pick\s+up|grab|order|call|text|message|email|send|reply|respond|submit|upload|download|finish|complete|write|clean|fix|check|review|read|watch|book|reserve|pay|return|fill|sign|print|prepare|plan|organise|organize|remind|bring|drop|file|update|install|set\s+up|register|cancel|reschedule|renew|collect|go\s+to)\b/i,
+  TODO_RE:     /\b(add|buy|get|pick\s+up|grab|order|call|text|message|email|send|reply|respond|submit|upload|download|finish|complete|write|clean|fix|check|review|read|watch|book|reserve|pay|return|fill|sign|print|prepare|plan|organise|organize|remind|bring|drop|file|update|install|set\s+up|register|cancel|reschedule|renew|collect|go\s+to)\b/i,
 
   NOTE_SIGNAL_RE: /\b(trying to (understand|figure out|see|know|think|process|make sense)|not sure|i('?m| am) not|i wonder|wondering|let me (think|see|check)|i don'?t know|just thinking|was thinking|it seems|feels like|i noticed|interesting|what'?s happening|i'?m confused|seems like|today i|i went|i saw|i felt|i had|i was)\b/i,
 
@@ -1742,14 +1809,14 @@ const SmartParser = {
   ]),
 
   // ── Helpers ───────────────────────────────────────────────────────
-  _parseTimeStr(h, m, ap) {
+  _parseTimeStr(h, m, ap, preferAm) {
     h = parseInt(h); m = m ? parseInt(m) : 0;
     ap = (ap || '').toLowerCase().replace(/\./g, '');
     if (ap === 'pm' && h < 12) h += 12;
     if (ap === 'am' && h === 12) h = 0;
-    // Assume PM for bare numbers "1" through "8" (e.g. "at 8" -> 8 PM). 
-    // Usually 9, 10, 11 bare are assumed AM.
-    if (!ap && h >= 1 && h <= 8) h += 12; 
+    // Bare hours 1–8 lean PM ("meet at 8" → evening), unless the title hints
+    // morning ("wake up at 7", "run at 6 in the morning" → AM)
+    if (!ap && !preferAm && h >= 1 && h <= 8) h += 12;
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   },
 
@@ -1760,13 +1827,17 @@ const SmartParser = {
 
   // ── Routine item parser ────────────────────────────────────────────
   _parseRoutineItems(text) {
-    // Find the list portion: everything after a colon, dash, or ":" 
+    // Find the list portion: everything after a colon, dash, or ":"
     // e.g. "Leg day: lunges 3x12, squats 3x15" or "Leg day lunges 3x12, squats 3x15"
     let listPart = text;
     const colonIdx = text.search(/:\s*/);
     if (colonIdx > -1) listPart = text.slice(colonIdx + 1);
 
-    const rawItems = listPart.split(this.ITEM_SPLIT_RE).map(s => s.trim()).filter(s => s.length > 1);
+    let rawItems = listPart.split(this.ITEM_SPLIT_RE).map(s => s.trim()).filter(s => s.length > 1);
+
+    // Unpunctuated dictation ("squats 3x12 lunges 3x15") arrives as one item;
+    // re-split before each known exercise name when a lookup is injected.
+    rawItems = rawItems.flatMap(raw => this._splitByExercises(raw));
 
     return rawItems.map(raw => {
       const metaMatch = raw.match(this.SETS_REPS_RE);
@@ -1778,9 +1849,60 @@ const SmartParser = {
       }
       // Clean up punctuation from item text
       itemText = itemText.replace(/^[-–•·]\s*/, '').replace(/[,;.]+$/, '').trim();
+      // Strip temporal/schedule phrases so items read "Take meds", not "Take meds at 8 every day"
+      for (const pat of this.TEMPORAL_STRIP) {
+        itemText = itemText.replace(pat, ' ');
+      }
+      itemText = itemText.replace(this.SCHEDULE_RE, ' ').replace(/\s+/g, ' ').trim();
       if (!itemText) return null;
       return { text: itemText.charAt(0).toUpperCase() + itemText.slice(1), meta, done: false };
     }).filter(Boolean);
+  },
+
+  // Split one raw item before each known exercise name. Needs
+  // SmartParser.exerciseLookup injected (set to matchExercise at boot; left
+  // null in unit tests that don't exercise this path).
+  _splitByExercises(raw) {
+    const lookup = this.exerciseLookup;
+    if (!lookup) return [raw];
+    // Generic anatomical/descriptor words aren't exercises on their own
+    const GENERIC = /^(leg|legs|arm|arms|back|chest|shoulder|shoulders|core|abs|upper|lower|full|body|day)$/i;
+    const words = raw.split(/\s+/);
+    const out = [];
+    let seg = [];
+    let segHasEx = false;
+    let segUnitIsLast = false; // exercise word is the trailing word of the segment
+    let segHasDigits = false;
+    for (let i = 0; i < words.length; i++) {
+      let unit = null, unitLen = 0;
+      for (let j = Math.min(words.length, i + 3); j > i; j--) {
+        const cand = words.slice(i, j).join(' ');
+        // exercise names never contain digits; without this guard
+        // "squats 3x12" matches as a unit via digit-stripping in the lookup
+        if (!/\d/.test(cand) && lookup(cand)) { unit = cand; unitLen = j - i; break; }
+      }
+      if (unit && unitLen === 1 && GENERIC.test(unit)) unit = null;
+      if (unit && segHasEx && !(segUnitIsLast && !segHasDigits)) {
+        // "incline press" after "bench press 4x8": "incline" is a modifier of
+        // the next exercise, not one of its own — merge instead of splitting
+        out.push(seg.join(' '));
+        seg = [];
+        segHasEx = false;
+        segHasDigits = false;
+      }
+      if (unit) {
+        seg.push(unit);
+        segHasEx = true;
+        segUnitIsLast = true;
+        i += unitLen - 1;
+      } else {
+        seg.push(words[i]);
+        segUnitIsLast = false;
+        if (/\d/.test(words[i])) segHasDigits = true;
+      }
+    }
+    out.push(seg.join(' '));
+    return out;
   },
 
   // ── Main parse ────────────────────────────────────────────────────
@@ -1789,6 +1911,11 @@ const SmartParser = {
 
     // 1. Strip fillers
     let text = (rawText || '').replace(this.FILLERS, ' ').replace(/\s+/g, ' ').trim();
+    // Discourse fillers can stack ("um so like remind me..."); loop until stable
+    for (let prev; text !== prev; ) {
+      prev = text;
+      text = text.replace(this.FILLERS_DISCOURSE, '$1').replace(/\s+/g, ' ').trim();
+    }
 
     // 2. Strip intent prefix
     text = text.replace(this.INTENT_PREFIX, '').replace(/^[,\s]+/, '').trim();
@@ -1809,10 +1936,11 @@ const SmartParser = {
     // 4. Extract TIME range (for calendar: "from 2 to 3pm")
     let reminderTime = null;
     let eventTime = null;
+    const preferAm = /\b(wake|waking|morning|breakfast|sunrise|dawn|early)\b/i.test(text);
     const trm = text.match(this.TIME_RANGE_RE);
     if (trm) {
-      const startT = this._parseTimeStr(trm[1], trm[2], trm[3] || trm[6]);
-      const endT   = this._parseTimeStr(trm[4], trm[5], trm[6] || trm[3]);
+      const startT = this._parseTimeStr(trm[1], trm[2], trm[3] || trm[6], preferAm);
+      const endT   = this._parseTimeStr(trm[4], trm[5], trm[6] || trm[3], preferAm);
       eventTime = `${startT} – ${endT}`;
     } else {
       const tm = text.match(this.TIME_RE);
@@ -1823,7 +1951,7 @@ const SmartParser = {
           const h = tm[2] || tm[5];
           const m = tm[3] || tm[6];
           const ap = tm[4] || tm[7];
-          reminderTime = this._parseTimeStr(h, m, ap);
+          reminderTime = this._parseTimeStr(h, m, ap, preferAm);
         }
       }
     }
@@ -1866,7 +1994,8 @@ const SmartParser = {
     
     const explicitRoutine = /\b(every\s+(day|morning|evening|night|week|weekday)|daily|each\s+(day|morning|evening)|routine|habit)\b/.test(lowerRaw);
     const explicitTodo = /\b(remind|forget|need to|have to|got to|gotta|task|to-do|reminder|remember to)\b/.test(lowerRaw);
-    const explicitNote = /\b(note to self|make a note|note:|journal|just thinking|was thinking|i noticed|log)\b/.test(lowerRaw);
+    // "note:" can't live inside the \b…\b group (no word boundary after ':')
+    const explicitNote = (/\b(note to self|make a note|journal|just thinking|was thinking|i noticed|log)\b|note:/i).test(lowerRaw);
     const isHabitKeyword = this.HABIT_KEYWORDS_RE.test(text);
 
     if (explicitRoutine) {
@@ -1878,15 +2007,17 @@ const SmartParser = {
     } else if (explicitNote || this.NOTE_SIGNAL_RE.test(lower)) {
       type = 'note';
     } else if (isHabitKeyword) {
-      type = 'routine';
+      // "yoga" alone → daily routine; but "yoga class tomorrow at 6" is a
+      // one-time plan, so explicit date/time wins over the habit keyword
+      type = (date || reminderTime || eventTime) ? 'todo' : 'routine';
     } else if (this.TODO_RE.test(text)) {
       type = 'todo';
     }
 
     if (type === 'note' && reminderTime) type = 'todo';
 
-    // Routines are always "daily" unless schedule says otherwise → no specific date
-    if (type === 'routine') date = null;
+    // Routines recur daily → store as 'daily' so renderCardFeed shows them every day
+    if (type === 'routine') date = 'daily';
     // Only set today's date for non-routine cards that have no explicit date
     if (!date && type !== 'routine') date = formatDateKey(today);
 
@@ -1968,6 +2099,9 @@ const SmartParser = {
 // Typed Composer
 // ============================================
 
+// Inject exercise-name lookup so routine items split before known exercises
+SmartParser.exerciseLookup = matchExercise;
+
 function createCardFromParsed(parsed) {
   const newCard = {
     id: Date.now(),
@@ -1984,6 +2118,8 @@ function createCardFromParsed(parsed) {
     location: parsed.location || null,
     meetLink: parsed.meetLink || null,
     subItems: (parsed.subItems || []).map(s => typeof s === 'string' ? { text: s, meta: '', done: false } : s),
+    scheduleLabel: parsed.scheduleLabel || null,
+    repeatCount: parsed.repeatCount || null,
     transcript: parsed.transcript || null
   };
 
@@ -3026,6 +3162,7 @@ const SettingsView = {
     appearance: 'system', accentColor: '#FF453A',
     calSync: 'none', defaultReminder: 'none',
     notifSound: 'default', bannerStyle: 'minimal',
+    speechLang: 'en-US',
     autoBackup: false
   },
 
@@ -3103,6 +3240,10 @@ const SettingsView = {
       }
       if (e.target.closest('#settingsExportBackup')) {
         SyncManager.exportJSON();
+        return;
+      }
+      if (e.target.closest('#settingsExerciseArtwork')) {
+        window.open('/licenses.html', '_blank');
         return;
       }
       if (e.target.closest('#settingsImportBackup')) {
@@ -3216,7 +3357,8 @@ const SettingsView = {
       fontSize: { small: 'Small', default: 'Default', large: 'Large' },
       defaultReminder: { none: 'None', '0': 'At time', '5': '5 min', '15': '15 min', '30': '30 min', '60': '1 hour' },
       notifSound: { none: 'None', default: 'Default', chime: 'Double Chime', synth: 'Synth Bell' },
-      bannerStyle: { minimal: 'Minimal', full: 'Full' }
+      bannerStyle: { minimal: 'Minimal', full: 'Full' },
+      speechLang: { 'en-US': 'English (US)', 'en-IN': 'English (India)', 'en-GB': 'English (UK)', 'en-AU': 'English (Australia)' }
     };
     for (const [key, labelMap] of Object.entries(svMap)) {
       const el = document.getElementById(`sv-${key}`);

@@ -1,12 +1,9 @@
-node_modules
+node_modules/
+dist/
+test-results/
+playwright-report/
+scratch/
+keystore/
+*.keystore
 .DS_Store
-dist
-.env
-.vercel
-
-# Playwright
-/test-results/
-/playwright-report/
-/blob-report/
-/playwright/.cache/
-/playwright/.auth/
+*.log

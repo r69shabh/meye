@@ -19,13 +19,23 @@ const Platform = {
         return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
       }
       if (Platform.OS === 'android') {
-        return true; 
+        return true;
       }
       return false;
     },
 
+    // Speech recognition language from Settings (meyePrefsV2.speechLang)
+    _getLang() {
+      try {
+        const prefs = JSON.parse(localStorage.getItem('meyePrefsV2') || '{}');
+        if (prefs.speechLang) return prefs.speechLang;
+      } catch (e) {}
+      return 'en-US';
+    },
+
     async start(options = {}) {
       const { onResult, onEnd, onError, onStart } = options;
+      const lang = this._getLang();
 
       if (Platform.OS === 'web' || Platform.OS === 'macos') {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -37,7 +47,7 @@ const Platform = {
         const rec = new SR();
         rec.continuous = false;
         rec.interimResults = true;
-        rec.lang = 'en-US';
+        rec.lang = lang;
 
         rec.onaudiostart = () => onStart && onStart();
         rec.onresult = (event) => {
@@ -79,7 +89,7 @@ const Platform = {
           });
 
           SpeechRecognition.start({
-            language: 'en-US',
+            language: lang,
             maxResults: 1,
             prompt: 'Listening...',
             partialResults: true,
