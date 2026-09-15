@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^26.2.0",
     "@vitest/ui": "^4.1.11",
     "@wdio/appium-service": "^9.31.1",

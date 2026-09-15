@@ -7,3 +7,9 @@ keystore/
 *.keystore
 .DS_Store
 *.log
+# Capacitor / Tauri generated
+src-tauri/target/
+src-tauri/gen/
+android/app/build/
+android/.gradle/
+android/local.properties
